@@ -38,9 +38,18 @@
           }
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Accès à la galerie pour importer votre CNI.",
+          "cameraPermission": "Accès à la caméra pour photographier votre CNI."
+        }
+      ],
       "expo-sqlite",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      "expo-video"
     ],
     "extra": {
       "eas": {

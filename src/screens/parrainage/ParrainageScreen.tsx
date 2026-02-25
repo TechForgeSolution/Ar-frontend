@@ -10,14 +10,28 @@ import {
   Clipboard,
   Alert,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../config/api';
-import { MainStackParamList, ParrainageInfo } from '../../types';
+import { MainStackParamList } from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'Parrainage'>;
+
+interface ParrainageInfo {
+  code_parrainage: string;
+  solde: number;
+  nombre_filleuls: number;
+  filleuls_avec_depot: number;
+  filleuls_restants: number;
+  prime_disponible: number;
+  explication_systeme: {
+    intro: string;
+    regles: { condition: string; avantage: string }[];
+    retrait: string;
+    important: string[];
+  };
+}
 
 const ParrainageScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
@@ -36,13 +50,11 @@ const ParrainageScreen: React.FC = () => {
           { method: 'GET' },
           token
         );
-
         const msgRes = await apiRequest<{ message: string }>(
           '/parrainage/message',
           { method: 'GET' },
           token
         );
-
         setInfo(infoRes);
         setShareMessage(msgRes.message);
       } catch (e: any) {
@@ -51,7 +63,6 @@ const ParrainageScreen: React.FC = () => {
         setLoading(false);
       }
     };
-
     loadData();
   }, [token]);
 
@@ -94,27 +105,58 @@ const ParrainageScreen: React.FC = () => {
     );
   }
 
+  const progressPercent = Math.min((info.filleuls_avec_depot / 3) * 100, 100);
+  const primeDebloquee = info.filleuls_avec_depot >= 3;
+
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#1e3a8a" />
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      
         <View style={styles.content}>
-          {/* Carte Niveau Actuel */}
-          <View style={styles.levelCard}>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelBadgeText}>NIVEAU {info.niveau_actuel}</Text>
-            </View>
-            <Text style={styles.levelTitle}>Votre niveau actuel</Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>{info.nombre_filleuls}</Text>
-                <Text style={styles.statLabel}>Filleuls</Text>
-              </View>
-            </View>
+
+          {/* Solde */}
+          <View style={styles.soldeCard}>
+            <Text style={styles.soldeLabel}>Votre solde</Text>
+            <Text style={styles.soldeAmount}>{info.solde.toLocaleString('fr-FR')} FCFA</Text>
+            <Text style={styles.soldeHint}>💳 Retrait en présentiel au CFPAM</Text>
           </View>
 
-          {/* Code de Parrainage avec boutons */}
+          {/* Progression */}
+          <View style={styles.progressCard}>
+            <Text style={styles.progressTitle}>🎯 Progression vers la prime</Text>
+            <View style={styles.progressBarBackground}>
+              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+            </View>
+            <View style={styles.progressLabels}>
+              <Text style={styles.progressCount}>
+                {info.filleuls_avec_depot} / 3 filleuls avec dépôt
+              </Text>
+              {!primeDebloquee && (
+                <Text style={styles.progressRemaining}>
+                  encore {info.filleuls_restants} filleul{info.filleuls_restants > 1 ? 's' : ''}
+                </Text>
+              )}
+            </View>
+
+            {primeDebloquee ? (
+              <View style={styles.primeUnlocked}>
+                <Text style={styles.primeUnlockedText}>
+                  🎉 Prime de {info.prime_disponible.toLocaleString('fr-FR')} FCFA débloquée !
+                </Text>
+                <Text style={styles.primeUnlockedSub}>
+                  Rendez-vous au CFPAM pour effectuer votre retrait.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.primePending}>
+                <Text style={styles.primePendingText}>
+                  💰 Gagnez {info.prime_disponible.toLocaleString('fr-FR')} FCFA dès que vos 3 filleuls ont fait un dépôt
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Code de parrainage */}
           <View style={styles.codeCard}>
             <Text style={styles.codeLabel}>Votre code de parrainage</Text>
             <View style={styles.codeContainer}>
@@ -130,63 +172,25 @@ const ParrainageScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Avantages du niveau suivant */}
-          {info.avantages_niveau_suivant && (
-            <View style={styles.nextLevelCard}>
-              <View style={styles.nextLevelHeader}>
-                <Text style={styles.nextLevelIcon}>🎯</Text>
-                <View style={styles.nextLevelInfo}>
-                  <Text style={styles.nextLevelTitle}>
-                    Prochain niveau : {info.avantages_niveau_suivant.niveau_cible}
-                  </Text>
-                  <Text style={styles.nextLevelCondition}>
-                    {info.avantages_niveau_suivant.condition}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.advantageBox}>
-                <Text style={styles.advantageLabel}>Avantage débloqué :</Text>
-                <Text style={styles.advantageText}>
-                  {info.avantages_niveau_suivant.avantage}
-                </Text>
-              </View>
-            </View>
-          )}
-
           {/* Comment ça marche */}
           <View style={styles.howItWorksCard}>
             <Text style={styles.sectionTitle}>📚 Comment ça marche ?</Text>
             <Text style={styles.introText}>{info.explication_systeme.intro}</Text>
 
-            {info.explication_systeme.niveaux.map((n, i) => (
-              <View key={i} style={styles.levelInfoCard}>
-                <View style={styles.levelInfoHeader}>
-                  <View style={styles.levelNumberBadge}>
-                    <Text style={styles.levelNumberText}>{n.niveau}</Text>
+            {info.explication_systeme.regles.map((regle, i) => (
+              <View key={i} style={styles.regleCard}>
+                <View style={styles.regleRow}>
+                  <Text style={styles.regleIcon}>✅</Text>
+                  <View style={styles.regleContent}>
+                    <Text style={styles.regleCondition}>{regle.condition}</Text>
+                    <Text style={styles.regleAvantage}>→ {regle.avantage}</Text>
                   </View>
-                  <Text style={styles.levelInfoTitle}>Niveau {n.niveau}</Text>
-                </View>
-                <View style={styles.levelInfoContent}>
-                  <Text style={styles.levelInfoLabel}>📝 Condition :</Text>
-                  <Text style={styles.levelInfoText}>{n.condition}</Text>
-                  <Text style={[styles.levelInfoLabel, { marginTop: 8 }]}>
-                    ✨ Avantage :
-                  </Text>
-                  <Text style={styles.levelInfoAdvantage}>{n.avantage}</Text>
                 </View>
               </View>
             ))}
 
-            {/* Points importants */}
-            <View style={styles.importantBox}>
-              <Text style={styles.importantTitle}>⚠️ Points importants</Text>
-              {info.explication_systeme.important.map((item, idx) => (
-                <View key={idx} style={styles.importantItem}>
-                  <Text style={styles.importantBullet}>•</Text>
-                  <Text style={styles.importantText}>{item}</Text>
-                </View>
-              ))}
-            </View>
+            
+
           </View>
 
           {/* Boutons d'action */}
@@ -198,13 +202,9 @@ const ParrainageScreen: React.FC = () => {
               <Text style={styles.secondaryButtonText}>👥 Voir mes filleuls</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => navigation.navigate('ArbreParrainage')}
-            >
-              <Text style={styles.secondaryButtonText}>🌳 Arbre de parrainage</Text>
-            </TouchableOpacity>
+            
           </View>
+
         </View>
       </ScrollView>
     </>
@@ -232,76 +232,118 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 24,
   },
-  header: {
-    paddingTop: 60,
-    paddingBottom: 32,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: '#e0f2fe',
-    lineHeight: 22,
-  },
   content: {
     padding: 16,
   },
-  levelCard: {
-    backgroundColor: '#ffffff',
+
+  /* Solde */
+  soldeCard: {
+    backgroundColor: '#1e3a8a',
     borderRadius: 16,
     padding: 24,
     marginBottom: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  soldeLabel: {
+    fontSize: 14,
+    color: '#bfdbfe',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  soldeAmount: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 10,
+  },
+  soldeHint: {
+    fontSize: 13,
+    color: '#93c5fd',
+  },
+
+  /* Progression */
+  progressCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
   },
-  levelBadge: {
-    backgroundColor: '#1e3a8a',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  levelBadgeText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  levelTitle: {
-    fontSize: 20,
+  progressTitle: {
+    fontSize: 17,
     fontWeight: '700',
     color: '#1e293b',
-    marginBottom: 20,
+    marginBottom: 14,
   },
-  statsRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  progressBarBackground: {
+    height: 12,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 8,
   },
-  statItem: {
-    alignItems: 'center',
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#3b82f6',
+    borderRadius: 6,
   },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#3b82f6',
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  progressCount: {
+    fontSize: 13,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  progressRemaining: {
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+  primeUnlocked: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#86efac',
+  },
+  primeUnlockedText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#15803d',
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
+  primeUnlockedSub: {
+    fontSize: 13,
+    color: '#166534',
   },
+  primePending: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#bfdbfe',
+  },
+  primePendingText: {
+    fontSize: 14,
+    color: '#1d4ed8',
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+
+  /* Code */
   codeCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -309,12 +351,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
   },
   codeLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748b',
     fontWeight: '600',
     marginBottom: 12,
@@ -331,10 +373,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   codeText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: '#1e3a8a',
-    letterSpacing: 2,
+    letterSpacing: 3,
     textAlign: 'center',
   },
   buttonRow: {
@@ -365,58 +407,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  nextLevelCard: {
-    backgroundColor: '#fef3c7',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#fbbf24',
-  },
-  nextLevelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  nextLevelIcon: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  nextLevelInfo: {
-    flex: 1,
-  },
-  nextLevelTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#92400e',
-    marginBottom: 4,
-  },
-  nextLevelCondition: {
-    fontSize: 14,
-    color: '#b45309',
-    lineHeight: 20,
-  },
-  advantageBox: {
-    backgroundColor: '#fffbeb',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#f59e0b',
-  },
-  advantageLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#92400e',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  advantageText: {
-    fontSize: 15,
-    color: '#78350f',
-    lineHeight: 22,
-    fontWeight: '600',
-  },
+
+  /* Comment ça marche */
   howItWorksCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -424,12 +416,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '800',
     color: '#1e293b',
     marginBottom: 12,
@@ -438,77 +430,76 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#475569',
     lineHeight: 24,
-    marginBottom: 20,
-  },
-  levelInfoCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
+  },
+  regleCard: {
+    backgroundColor: '#f0fdf4',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#22c55e',
+  },
+  regleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  regleIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  regleContent: {
+    flex: 1,
+  },
+  regleCondition: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#15803d',
+    marginBottom: 4,
+  },
+  regleAvantage: {
+    fontSize: 14,
+    color: '#166534',
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  retraitBox: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    marginTop: 4,
     borderLeftWidth: 4,
     borderLeftColor: '#3b82f6',
   },
-  levelInfoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  levelNumberBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  levelNumberText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  levelInfoTitle: {
-    fontSize: 17,
+  retraitTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#1e293b',
-  },
-  levelInfoContent: {
-    paddingLeft: 48,
-  },
-  levelInfoLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748b',
+    color: '#1d4ed8',
     marginBottom: 4,
   },
-  levelInfoText: {
+  retraitText: {
     fontSize: 14,
-    color: '#475569',
+    color: '#1e40af',
     lineHeight: 20,
-  },
-  levelInfoAdvantage: {
-    fontSize: 14,
-    color: '#059669',
-    lineHeight: 20,
-    fontWeight: '600',
   },
   importantBox: {
     backgroundColor: '#fef2f2',
     borderRadius: 12,
     padding: 16,
-    marginTop: 8,
+    marginTop: 4,
     borderWidth: 1,
     borderColor: '#fecaca',
   },
   importantTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     color: '#991b1b',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   importantItem: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   importantBullet: {
     fontSize: 16,
@@ -518,10 +509,12 @@ const styles = StyleSheet.create({
   },
   importantText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13,
     color: '#7f1d1d',
     lineHeight: 20,
   },
+
+  /* Actions */
   actionsContainer: {
     marginBottom: 24,
   },

@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  Linking,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,10 +18,13 @@ import { apiRequest } from '../../config/api';
 import { formatCurrency } from '../../utils/formatters';
 import Card from '../../components/common/Card';
 import ProgressBar from '../../components/common/ProgressBar';
-import StatusBadge from '../../components/common/StatusBadge';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 
 type Props = { navigation: NativeStackNavigationProp<MainStackParamList, 'Dashboard'> };
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WHATSAPP_NUMBER = '237659292001'; // Cameroun (+237) + numéro
 
 const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user, token } = useAuth();
@@ -22,9 +33,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState({ jours: 0, heures: 0, minutes: 0, secondes: 0 });
 
-  useEffect(() => {
-    fetchDashboard();
-  }, []);
+  useEffect(() => { fetchDashboard(); }, []);
 
   useEffect(() => {
     if (dashboard?.compte_a_rebours?.timestamp_cible) {
@@ -33,9 +42,9 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const diff = dashboard.compte_a_rebours.timestamp_cible - now;
         if (diff > 0) {
           setCountdown({
-            jours: Math.floor(diff / 86400),
-            heures: Math.floor((diff % 86400) / 3600),
-            minutes: Math.floor((diff % 3600) / 60),
+            jours:    Math.floor(diff / 86400),
+            heures:   Math.floor((diff % 86400) / 3600),
+            minutes:  Math.floor((diff % 3600) / 60),
             secondes: diff % 60,
           });
         } else {
@@ -58,75 +67,72 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  // Vérifier si l'utilisateur est prêt
-  const checkReadiness = () => {
-    const allPaid = dashboard?.frais 
-      ? Object.values(dashboard.frais).every(f => f.status === 'paye')
-      : false;
-    
-    const theoriqueComplete = (dashboard?.progression?.theorique?.global?.pourcentage || 0) >= 100;
-    const pratiqueComplete = (dashboard?.progression?.pratique?.global?.pourcentage || 0) >= 100;
-    
-    const isReady = allPaid && theoriqueComplete && pratiqueComplete;
-    
-    const missing = [];
-    if (!allPaid) missing.push('Frais de formation');
-    if (!theoriqueComplete) missing.push('Cours théoriques');
-    if (!pratiqueComplete) missing.push('Cours pratiques');
-    
-    return { isReady, missing };
+  const openWhatsApp = () => {
+    const url = `whatsapp://send?phone=${WHATSAPP_NUMBER}`;
+    Linking.canOpenURL(url)
+      .then(supported => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          // Fallback vers WhatsApp Web
+          Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`);
+        }
+      })
+      .catch(() => Linking.openURL(`https://wa.me/${WHATSAPP_NUMBER}`));
   };
 
-  const { isReady, missing } = checkReadiness();
+  // ─── Calcul état de préparation ──────────────────────────────────────────
+
+  const fraisPaye    = dashboard?.frais
+    ? Object.values(dashboard.frais).every(f => f.status === 'paye' || f.status === 'dispense')
+    : false;
+  const theoriqueOk  = (dashboard?.progression?.theorique?.global?.pourcentage ?? 0) >= 100;
+  const pratiqueOk   = (dashboard?.progression?.pratique?.global?.pourcentage ?? 0) >= 100;
+  const isReady      = fraisPaye && theoriqueOk && pratiqueOk;
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   if (loading) return <LoadingSpinner fullScreen message="Chargement..." />;
 
   const menuItems = [
-    { icon: 'wallet', label: 'Recharger', color: theme.colors.success, route: 'Paiement' },
-    { icon: 'swap-horizontal', label: 'Transférer', color: theme.colors.info, route: 'Transfert' },
-    { icon: 'receipt', label: 'Historique Transaction', color: theme.colors.warning, route: 'Historique' },
-    { icon: 'card', label: 'Payer Frais', color: theme.colors.secondary, route: 'PayerFrais' },
-    { icon: 'book', label: 'Cours Théorique', color: theme.colors.primary, route: 'CoursTheorique' },
-    { icon: 'videocam', label: 'Cours Pratique', color: theme.colors.error, route: 'CoursPratique' },
-    { icon: 'people', label: 'Parrainage', color: '#8B5CF6', route: 'Parrainage' },
+    { icon: 'wallet',          label: 'Recharger',    color: theme.colors.success,   route: 'Paiement'      },
+    { icon: 'swap-horizontal', label: 'Transférer',   color: theme.colors.info,      route: 'Transfert'     },
+    { icon: 'receipt',         label: 'Historique',   color: theme.colors.warning,   route: 'Historique'    },
+    { icon: 'card',            label: 'Beneficier',  color: theme.colors.secondary, route: 'PayerFrais'    },
+    { icon: 'book',            label: 'Théorique',    color: theme.colors.primary,   route: 'CoursTheorique'},
+    { icon: 'car',             label: 'Pratique',     color: theme.colors.error,     route: 'CoursPratique' },
+    { icon: 'people',          label: 'Parrainage',   color: '#8B5CF6',              route: 'Parrainage'    },
+    { icon: 'document-text',   label: "Examen",  color: '#0EA5E9',              route: 'CniInscription'},
   ];
-
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return 'Non définie';
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return 'Date invalide';
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    } catch (error) {
-      return 'Non définie';
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchDashboard(); }} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchDashboard(); }}
+          />
         }
       >
-        {/* Header */}
+        {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Text style={styles.greeting}>Bienvenue,</Text>
             <Text style={styles.userName}>{user?.prenom}</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.avatarButton}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Profile')}
+            style={styles.avatarButton}
+          >
             <View style={styles.avatarContainer}>
               <Ionicons name="person" size={24} color={theme.colors.primary} />
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Balance Card */}
+        {/* ── Solde ──────────────────────────────────────────── */}
         <Card style={styles.balanceCard}>
           <View style={styles.balanceContent}>
             <View style={styles.balanceHeader}>
@@ -135,66 +141,13 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               </View>
               <Text style={styles.balanceLabel}>Mon Solde</Text>
             </View>
-            <Text style={styles.balanceAmount}>{formatCurrency(dashboard?.utilisateur?.solde || 0)}</Text>
+            <Text style={styles.balanceAmount}>
+              {formatCurrency(dashboard?.utilisateur?.solde ?? 0)}
+            </Text>
           </View>
         </Card>
 
-        {/* Statut de Préparation */}
-        <Card style={styles.readinessCard}>
-          <View style={styles.readinessHeader}>
-            <View style={[styles.readinessIconWrapper, isReady ? styles.readyIcon : styles.notReadyIcon]}>
-              <Ionicons 
-                name={isReady ? "checkmark-circle" : "alert-circle"} 
-                size={24} 
-                color="#fff" 
-              />
-            </View>
-            <View style={styles.readinessTextContainer}>
-              <Text style={styles.readinessTitle}>
-                {isReady ? "Vous êtes prêt !" : "Vous n'êtes pas encore prêt à passer l'examen"}
-              </Text>
-              <Text style={styles.readinessSubtitle}>
-                {isReady 
-                  ? "Tous les critères sont remplis pour passer l'examen" 
-                  : "Complétez les éléments suivants"}
-              </Text>
-            </View>
-          </View>
-          
-          {!isReady && missing.length > 0 && (
-            <View style={styles.missingContainer}>
-              {missing.map((item, index) => (
-                <View key={index} style={styles.missingItem}>
-                  <Ionicons name="close-circle" size={18} color={theme.colors.error} />
-                  <Text style={styles.missingText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </Card>
-
-        {/* Compte à rebours */}
-        {dashboard?.compte_a_rebours && !dashboard.compte_a_rebours.passe && (
-          <Card title="Compte à rebours - Examen" style={styles.section}>
-            <View style={styles.countdownRow}>
-              {[
-                { v: countdown.jours, l: 'Jours' },
-                { v: countdown.heures, l: 'Heures' },
-                { v: countdown.minutes, l: 'Min' },
-                { v: countdown.secondes, l: 'Sec' },
-              ].map((item, i) => (
-                <View key={i} style={styles.countdownItem}>
-                  <View style={styles.countdownBox}>
-                    <Text style={styles.countdownValue}>{item.v.toString().padStart(2, '0')}</Text>
-                  </View>
-                  <Text style={styles.countdownLabel}>{item.l}</Text>
-                </View>
-              ))}
-            </View>
-          </Card>
-        )}
-
-        {/* Menu Grid */}
+        {/* ── Menu de navigation ─────────────────────────────── */}
         <View style={styles.menuGrid}>
           {menuItems.map((item, i) => (
             <TouchableOpacity
@@ -203,7 +156,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               onPress={() => navigation.navigate(item.route as any)}
               activeOpacity={0.7}
             >
-              <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
+              <View style={[styles.menuIcon, { backgroundColor: item.color + '18' }]}>
                 <Ionicons name={item.icon as any} size={26} color={item.color} />
               </View>
               <Text style={styles.menuLabel}>{item.label}</Text>
@@ -211,17 +164,123 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Progression */}
+        {/* ── Card Prêt pour l'examen ────────────────────────── */}
+        <Card style={styles.section}>
+          {/* Titre */}
+          <View style={styles.readinessHeader}>
+            <View style={[
+              styles.readinessIconWrapper,
+              isReady ? styles.readyIcon : styles.notReadyIcon,
+            ]}>
+              <Ionicons
+                name={isReady ? 'checkmark-circle' : 'alert-circle'}
+                size={26}
+                color="#fff"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.readinessTitle}>
+                {isReady ? 'Vous êtes prêt !' : "Pas encore prêt pour l'examen"}
+              </Text>
+              <Text style={styles.readinessSubtitle}>
+                {isReady
+                  ? 'Tous les critères sont remplis ✓'
+                  : 'Appuyez sur un élément pour le compléter'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Séparateur */}
+          <View style={styles.divider} />
+
+          {/* Critère : Frais de formation */}
+          <TouchableOpacity
+            style={styles.criteriaRow}
+            onPress={() => !fraisPaye && navigation.navigate('PayerFrais')}
+            activeOpacity={fraisPaye ? 1 : 0.6}
+          >
+            <View style={[styles.criteriaIcon, fraisPaye ? styles.doneIcon : styles.pendingIcon]}>
+              <Ionicons
+                name={fraisPaye ? 'checkmark' : 'card-outline'}
+                size={16}
+                color="#fff"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.criteriaLabel}>Frais de formation</Text>
+              <Text style={[styles.criteriaStatus, { color: fraisPaye ? '#10B981' : '#F59E0B' }]}>
+                {fraisPaye ? 'Payés' : 'Non payés — Appuyez pour payer'}
+              </Text>
+            </View>
+            {!fraisPaye && (
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+            )}
+          </TouchableOpacity>
+
+          {/* Critère : Cours théoriques */}
+          <TouchableOpacity
+            style={styles.criteriaRow}
+            onPress={() => !theoriqueOk && navigation.navigate('CoursTheorique')}
+            activeOpacity={theoriqueOk ? 1 : 0.6}
+          >
+            <View style={[styles.criteriaIcon, theoriqueOk ? styles.doneIcon : styles.pendingIcon]}>
+              <Ionicons
+                name={theoriqueOk ? 'checkmark' : 'book-outline'}
+                size={16}
+                color="#fff"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.criteriaLabel}>Cours théoriques</Text>
+              <Text style={[styles.criteriaStatus, { color: theoriqueOk ? '#10B981' : '#F59E0B' }]}>
+                {theoriqueOk
+                  ? 'Complétés'
+                  : `${dashboard?.progression?.theorique?.global?.pourcentage ?? 0}% — Appuyez pour continuer`}
+              </Text>
+            </View>
+            {!theoriqueOk && (
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+            )}
+          </TouchableOpacity>
+
+          {/* Critère : Cours pratiques */}
+          <TouchableOpacity
+            style={[styles.criteriaRow, { borderBottomWidth: 0 }]}
+            onPress={() => !pratiqueOk && navigation.navigate('CoursPratique')}
+            activeOpacity={pratiqueOk ? 1 : 0.6}
+          >
+            <View style={[styles.criteriaIcon, pratiqueOk ? styles.doneIcon : styles.pendingIcon]}>
+              <Ionicons
+                name={pratiqueOk ? 'checkmark' : 'car-outline'}
+                size={16}
+                color="#fff"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.criteriaLabel}>Cours pratiques</Text>
+              <Text style={[styles.criteriaStatus, { color: pratiqueOk ? '#10B981' : '#F59E0B' }]}>
+                {pratiqueOk
+                  ? 'Complétés'
+                  : `${dashboard?.progression?.pratique?.global?.pourcentage ?? 0}% — Appuyez pour continuer`}
+              </Text>
+            </View>
+            {!pratiqueOk && (
+              <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+            )}
+          </TouchableOpacity>
+        </Card>
+
+        {/* ── Progression ────────────────────────────────────── */}
         <Card title="Ma Progression" style={styles.section}>
           <View style={styles.progressItem}>
             <View style={styles.progressHeader}>
               <Text style={styles.progressLabel}>Cours Théoriques</Text>
               <Text style={styles.progressPercentage}>
-                {dashboard?.progression?.theorique?.global?.pourcentage || 0}%
+                {dashboard?.progression?.theorique?.global?.pourcentage ?? 0}%
               </Text>
             </View>
             <ProgressBar
-              progress={dashboard?.progression?.theorique?.global?.pourcentage || 0}
+              progress={dashboard?.progression?.theorique?.global?.pourcentage ?? 0}
               showLabel={false}
               progressColor={theme.colors.primary}
             />
@@ -230,173 +289,120 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.progressHeader}>
               <Text style={styles.progressLabel}>Cours Pratiques</Text>
               <Text style={styles.progressPercentage}>
-                {dashboard?.progression?.pratique?.global?.pourcentage || 0}%
+                {dashboard?.progression?.pratique?.global?.pourcentage ?? 0}%
               </Text>
             </View>
             <ProgressBar
-              progress={dashboard?.progression?.pratique?.global?.pourcentage || 0}
+              progress={dashboard?.progression?.pratique?.global?.pourcentage ?? 0}
               showLabel={false}
               progressColor={theme.colors.secondary}
             />
           </View>
         </Card>
 
-        {/* Frais de Formation */}
-        <Card title="Frais de Formation" style={styles.section}>
-          {dashboard?.frais &&
-            Object.entries(dashboard.frais).map(([key, frais]) => (
-              <View key={key} style={styles.fraisItem}>
-                <View style={styles.fraisLeft}>
-                  <Text style={styles.fraisLabel}>{frais.label}</Text>
-                  <Text style={styles.fraisMontant}>{formatCurrency(frais.montant)}</Text>
+        {/* ── Compte à rebours ───────────────────────────────── */}
+        {dashboard?.compte_a_rebours && !dashboard.compte_a_rebours.passe && (
+          <Card title="Compte à rebours — Examen" style={styles.section}>
+            <View style={styles.countdownRow}>
+              {[
+                { v: countdown.jours,    l: 'Jours'  },
+                { v: countdown.heures,   l: 'Heures' },
+                { v: countdown.minutes,  l: 'Min'    },
+                { v: countdown.secondes, l: 'Sec'    },
+              ].map((item, i) => (
+                <View key={i} style={styles.countdownItem}>
+                  <View style={styles.countdownBox}>
+                    <Text style={styles.countdownValue}>
+                      {item.v.toString().padStart(2, '0')}
+                    </Text>
+                  </View>
+                  <Text style={styles.countdownLabel}>{item.l}</Text>
                 </View>
-                <StatusBadge status={frais.status as any} />
-              </View>
-            ))}
-        </Card>
-
-        {/* Ma Session */}
-        {dashboard?.session && (
-          <Card title="Ma Session" style={styles.section}>
-            <View style={styles.sessionItem}>
-              <Text style={styles.sessionLabel}>Nom de la session</Text>
-              <Text style={styles.sessionValue}>{dashboard.session.nom}</Text>
+              ))}
             </View>
-            <View style={styles.sessionItem}>
-              <Text style={styles.sessionLabel}>Vague</Text>
-              <Text style={styles.sessionValue}>
-                Vague {dashboard.utilisateur.vague || user?.vague || 'Non définie'}
-              </Text>
-            </View>
-
-            {dashboard.session.date_communication_enregistrement && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Communication enregistrement</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_communication_enregistrement)}
-                </Text>
-              </View>
-            )}
-
-            {dashboard.session.date_enregistrement_vague1 && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Enregistrement Vague 1</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_enregistrement_vague1)}
-                </Text>
-              </View>
-            )}
-
-            {dashboard.session.date_enregistrement_vague2 && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Enregistrement Vague 2</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_enregistrement_vague2)}
-                </Text>
-              </View>
-            )}
-
-            {dashboard.session.date_transfert_reconduction && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Transfert / Reconduction</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_transfert_reconduction)}
-                </Text>
-              </View>
-            )}
-
-            {dashboard.session.date_depot_departemental && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Dépôt départemental</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_depot_departemental)}
-                </Text>
-              </View>
-            )}
-
-            {dashboard.session.date_depot_regional && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Dépôt régional</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_depot_regional)}
-                </Text>
-              </View>
-            )}
-
-            {dashboard.session.date_examen_theorique && (
-              <View style={styles.sessionItem}>
-                <Text style={styles.sessionLabel}>Examen National</Text>
-                <Text style={styles.sessionValue}>
-                  {formatDate(dashboard.session.date_examen_theorique)}
-                </Text>
-              </View>
-            )}
-
-            
           </Card>
         )}
-        {/* Powered By Footer */}
-<TouchableOpacity 
-  style={styles.footerContainer}
-  onPress={() => {
-    // Ouvrir le site web
-    const url = 'https://techforgesolution237.site';
-    // Vous devrez importer Linking de react-native
-    // import { Linking } from 'react-native';
-    Linking.openURL(url).catch(err => console.error('Error opening URL:', err));
-  }}
-  activeOpacity={0.7}
->
-  <Text style={styles.footerText}>
-    Powered by <Text style={styles.footerLink}>TechForgeSolution237</Text>
-  </Text>
-</TouchableOpacity>
+
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.footerContainer}
+          onPress={() =>
+            Linking.openURL('https://techforgesolution237.site').catch(err =>
+              console.error('Error opening URL:', err)
+            )
+          }
+          activeOpacity={0.7}
+        >
+          <Text style={styles.footerText}>
+            Powered by{' '}
+            <Text style={styles.footerLink}>TechForgeSolution237</Text>
+          </Text>
+        </TouchableOpacity>
+
+        {/* Espace en bas pour éviter que le FAB cache du contenu */}
+        <View style={{ height: 90 }} />
       </ScrollView>
+
+      {/* ── Bouton WhatsApp flottant ───────────────────────── */}
+      <TouchableOpacity
+        style={styles.whatsappFab}
+        onPress={openWhatsApp}
+        activeOpacity={0.85}
+      >
+        {/* Icône SVG WhatsApp via Image URI (ou utilisez react-native-svg si disponible) */}
+        <WhatsAppIcon size={32} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
 
+// ─── Composant icône WhatsApp ──────────────────────────────────────────────────
+// Rendu via react-native-svg (déjà inclus dans Expo SDK)
+// Si react-native-svg n'est pas disponible, un fallback View stylisé est utilisé
+import Svg, { Path } from 'react-native-svg';
+
+const WhatsAppIcon: React.FC<{ size?: number }> = ({ size = 32 }) => (
+  <Svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="#ffffff"
+  >
+    {/* Icône officielle WhatsApp */}
+    <Path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+  </Svg>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: theme.colors.background 
-  },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
+  container: { flex: 1, backgroundColor: theme.colors.background },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
   },
-  headerLeft: { 
-    flex: 1 
-  },
-  greeting: { 
-    ...theme.typography.bodySmall, 
-    color: theme.colors.textSecondary,
-    marginBottom: 4,
-  },
-  userName: { 
-    ...theme.typography.h2, 
-    color: theme.colors.textPrimary,
-    fontWeight: '700',
-  },
-  avatarButton: {
-    padding: 4,
-  },
+  headerLeft:      { flex: 1 },
+  greeting:        { ...theme.typography.bodySmall, color: theme.colors.textSecondary, marginBottom: 4 },
+  userName:        { ...theme.typography.h2, color: theme.colors.textPrimary, fontWeight: '700' },
+  avatarButton:    { padding: 4 },
   avatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: theme.colors.primary + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: theme.colors.primary + '30',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: theme.colors.primary + '30',
   },
-  balanceCard: { 
-    backgroundColor: theme.colors.primary, 
-    marginHorizontal: theme.spacing.lg, 
+
+  // Balance
+  balanceCard: {
+    backgroundColor: theme.colors.primary,
+    marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
     elevation: 4,
     shadowColor: theme.colors.primary,
@@ -404,121 +410,68 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
-  balanceContent: {
-    paddingVertical: theme.spacing.sm,
+  balanceContent:    { paddingVertical: theme.spacing.sm },
+  balanceHeader:     { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.xs },
+  balanceIconWrapper:{
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  balanceHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.xs,
-  },
-  balanceIconWrapper: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  balanceLabel: { 
-    ...theme.typography.bodySmall, 
-    color: '#fff', 
-    opacity: 0.95,
-    fontWeight: '500',
-  },
-  balanceAmount: { 
-    ...theme.typography.h1, 
-    color: '#fff', 
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  footerContainer: {
-  alignItems: 'center',
-  paddingVertical: theme.spacing.lg,
-  paddingHorizontal: theme.spacing.lg,
-  marginBottom: theme.spacing.md,
-},
-footerText: {
-  ...theme.typography.caption,
-  color: theme.colors.textSecondary,
-  textAlign: 'center',
-},
-footerLink: {
-  color: theme.colors.primary,
-  fontWeight: '600',
-},
-  readinessCard: {
-    marginHorizontal: theme.spacing.lg,
+  balanceLabel:  { ...theme.typography.bodySmall, color: '#fff', opacity: 0.95, fontWeight: '500' },
+  balanceAmount: { ...theme.typography.h1, color: '#fff', fontWeight: '700', letterSpacing: 0.5 },
+
+  // Menu
+  menuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: theme.spacing.md,
     marginBottom: theme.spacing.md,
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    gap: theme.spacing.xs,
   },
-  readinessHeader: {
+  menuItem:  { width: '25%', alignItems: 'center', paddingVertical: theme.spacing.sm },
+  menuIcon:  {
+    width: 56, height: 56, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  menuLabel: { ...theme.typography.caption, color: theme.colors.textPrimary, textAlign: 'center', fontWeight: '500' },
+
+  // Section générique
+  section: { marginHorizontal: theme.spacing.lg, marginBottom: theme.spacing.md },
+
+  // Readiness card
+  readinessHeader:      { flexDirection: 'row', alignItems: 'center', gap: theme.spacing.md, marginBottom: 4 },
+  readinessIconWrapper: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  readyIcon:            { backgroundColor: '#10B981' },
+  notReadyIcon:         { backgroundColor: '#F59E0B' },
+  readinessTitle:       { ...theme.typography.h4, color: theme.colors.textPrimary, fontWeight: '700' },
+  readinessSubtitle:    { ...theme.typography.caption, color: theme.colors.textSecondary, marginTop: 2 },
+  divider:              { height: 1, backgroundColor: theme.colors.border, marginVertical: theme.spacing.md },
+
+  criteriaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
   },
-  readinessIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  readyIcon: {
-    backgroundColor: theme.colors.success,
-  },
-  notReadyIcon: {
-    backgroundColor: theme.colors.warning,
-  },
-  readinessTextContainer: {
-    flex: 1,
-  },
-  readinessTitle: {
-    ...theme.typography.h4,
-    color: theme.colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  readinessSubtitle: {
-    ...theme.typography.caption,
-    color: theme.colors.textSecondary,
-  },
-  missingContainer: {
-    marginTop: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    gap: theme.spacing.sm,
-  },
-  missingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  missingText: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textPrimary,
-  },
-  section: { 
-    marginHorizontal: theme.spacing.lg, 
-    marginBottom: theme.spacing.md 
-  },
-  countdownRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around',
-    paddingVertical: theme.spacing.sm,
-  },
-  countdownItem: { 
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-  },
-  countdownBox: {
+  criteriaIcon:    { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  doneIcon:        { backgroundColor: '#10B981' },
+  pendingIcon:     { backgroundColor: '#F59E0B' },
+  criteriaLabel:   { ...theme.typography.bodySmall, color: theme.colors.textPrimary, fontWeight: '600' },
+  criteriaStatus:  { ...theme.typography.caption, marginTop: 2 },
+
+  // Progression
+  progressItem:    { marginBottom: theme.spacing.lg },
+  progressHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: theme.spacing.sm },
+  progressLabel:   { ...theme.typography.bodySmall, color: theme.colors.textPrimary, fontWeight: '500' },
+  progressPercentage: { ...theme.typography.bodySmall, color: theme.colors.primary, fontWeight: '700' },
+
+  // Countdown
+  countdownRow:  { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: theme.spacing.sm },
+  countdownItem: { alignItems: 'center', gap: theme.spacing.sm },
+  countdownBox:  {
     backgroundColor: theme.colors.primary + '10',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
@@ -526,101 +479,35 @@ footerLink: {
     minWidth: 60,
     alignItems: 'center',
   },
-  countdownValue: { 
-    ...theme.typography.h2, 
-    color: theme.colors.primary,
-    fontWeight: '700',
-  },
-  countdownLabel: { 
-    ...theme.typography.caption, 
-    color: theme.colors.textSecondary,
-    fontWeight: '500',
-  },
-  menuGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    paddingHorizontal: theme.spacing.md, 
+  countdownValue: { ...theme.typography.h2, color: theme.colors.primary, fontWeight: '700' },
+  countdownLabel: { ...theme.typography.caption, color: theme.colors.textSecondary, fontWeight: '500' },
+
+  // Footer
+  footerContainer: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.lg,
     marginBottom: theme.spacing.md,
-    gap: theme.spacing.xs,
   },
-  menuItem: { 
-    width: '25%', 
-    alignItems: 'center', 
-    paddingVertical: theme.spacing.sm,
-  },
-  menuIcon: { 
-    width: 56, 
-    height: 56, 
-    borderRadius: 16, 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    marginBottom: theme.spacing.sm,
-  },
-  menuLabel: { 
-    ...theme.typography.caption, 
-    color: theme.colors.textPrimary, 
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  fraisItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  footerText: { ...theme.typography.caption, color: theme.colors.textSecondary, textAlign: 'center' },
+  footerLink: { color: theme.colors.primary, fontWeight: '600' },
+
+  // ── WhatsApp FAB ──────────────────────────────────────────────────────────
+  whatsappFab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 20,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#25D366',           // couleur officielle WhatsApp
     alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  fraisLeft: {
-    flex: 1,
-  },
-  fraisLabel: { 
-    ...theme.typography.bodySmall, 
-    color: theme.colors.textPrimary,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  fraisMontant: { 
-    ...theme.typography.caption, 
-    color: theme.colors.textSecondary 
-  },
-  progressItem: { 
-    marginBottom: theme.spacing.lg 
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
-  },
-  progressLabel: { 
-    ...theme.typography.bodySmall, 
-    color: theme.colors.textPrimary,
-    fontWeight: '500',
-  },
-  progressPercentage: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.primary,
-    fontWeight: '700',
-  },
-  sessionItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-  },
-  sessionLabel: { 
-    ...theme.typography.bodySmall, 
-    color: theme.colors.textSecondary,
-    flex: 1,
-  },
-  sessionValue: { 
-    ...theme.typography.bodySmall, 
-    color: theme.colors.textPrimary, 
-    fontWeight: '600',
-    textAlign: 'right',
-    flex: 1,
+    justifyContent: 'center',
+    // Ombre portée
+    elevation: 8,
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
   },
 });
 

@@ -233,28 +233,7 @@ export const ProfileScreen = () => {
           </View>
         </View>
 
-        {/* Statut des paiements */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Statut des paiements</Text>
-          <View style={styles.card}>
-            <StatusBadge
-              status={user.status_frais_formation}
-              label="Frais de formation (40 000 FCFA)"
-            />
-            <StatusBadge
-              status={user.status_frais_inscription}
-              label="Frais d'inscription (10 000 FCFA)"
-            />
-            <StatusBadge
-              status={user.status_examen_blanc}
-              label="Examen blanc (12 500 FCFA)"
-            />
-            <StatusBadge
-              status={user.status_frais_examen}
-              label="Frais d'examen (30 000 FCFA)"
-            />
-          </View>
-        </View>
+        
 
         {/* Lieux de pratique */}
         {user.lieuxPratique && user.lieuxPratique.length > 0 && (

@@ -100,12 +100,15 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.logoSection}>
-          <View style={styles.logoContainer}>
-            <Ionicons name="car-sport" size={80} color={theme.colors.textInverse} />
-          </View>
-          <Text style={styles.title}>Ange Raphael</Text>
-          <Text style={styles.subtitle}>Auto École</Text>
-        </View>
+  <View style={styles.logoContainer}>
+    <Ionicons name="car-sport" size={80} color={theme.colors.textInverse} />
+  </View>
+  <Text style={styles.title}>Auto École</Text>
+  <Text style={styles.subtitle}>Ange Raphael</Text>
+  <Text style={[styles.subtitle, styles.agrement]}>
+    Agrément N° 0266/D/MINT/G/DTR/SDPSR/SFCAM
+  </Text>
+</View>
 
         <View style={styles.features}>
           <View style={styles.featureItem}>
@@ -201,6 +204,15 @@ const WelcomeScreen: React.FC<Props> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  agrement: {
+  color: '#000000',           // Noir
+  fontSize: 11,               // Taille réduite pour tenir sur une ligne
+  fontWeight: '600',          // Semi-bold pour la lisibilité
+  textAlign: 'center',        // Centré
+  paddingHorizontal: 16,      // Marges latérales pour bien cadrer
+  letterSpacing: 0.3,         // Légère espacement des lettres
+  lineHeight: 18,             // Hauteur de ligne confortable
+},
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

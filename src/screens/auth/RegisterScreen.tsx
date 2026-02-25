@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,9 +25,6 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
-type Vague = '1' | '2';
-
-// Composant Select personnalisé
 interface SelectProps {
   label: string;
   value: string;
@@ -46,7 +43,7 @@ const CustomSelect: React.FC<SelectProps> = ({
   disabled = false,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
-  
+
   const selectedLabel = options.find(opt => String(opt.value) === String(value))?.label || placeholder;
   const hasValue = value !== '' && String(value) !== '0';
 
@@ -54,18 +51,12 @@ const CustomSelect: React.FC<SelectProps> = ({
     <View style={styles.selectWrapper}>
       <Text style={styles.label}>{label}</Text>
       <TouchableOpacity
-        style={[
-          styles.selectButton,
-          disabled && styles.selectButtonDisabled,
-        ]}
+        style={[styles.selectButton, disabled && styles.selectButtonDisabled]}
         onPress={() => !disabled && setModalVisible(true)}
         disabled={disabled}
         activeOpacity={0.7}
       >
-        <Text style={[
-          styles.selectButtonText,
-          !hasValue && styles.selectPlaceholder,
-        ]}>
+        <Text style={[styles.selectButtonText, !hasValue && styles.selectPlaceholder]}>
           {selectedLabel}
         </Text>
         <Text style={styles.selectArrow}>▼</Text>
@@ -85,10 +76,7 @@ const CustomSelect: React.FC<SelectProps> = ({
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{label}</Text>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={styles.modalCloseBtn}
-              >
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
                 <Text style={styles.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -126,7 +114,7 @@ const CustomSelect: React.FC<SelectProps> = ({
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const { register } = useAuth();
-  const { sessions, centresExamen, lieuxPratique, getDefaultParrainageCode } = useConfig();
+  const { centresExamen, getDefaultParrainageCode } = useConfig();
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -136,100 +124,33 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     password: '',
     password_confirmation: '',
     date_naissance: '',
-    quartier: '',
     type_permis: 'permis_b' as 'permis_a' | 'permis_b' | 'permis_t',
-    type_cours: 'en_ligne' as 'en_ligne' | 'presentiel' | 'les_deux',
-    vague: '' as Vague | '',
-    session_id: 0,
     centre_examen_id: 0,
     code_parrainage: '',
-    lieux_pratique: [] as number[],
   });
 
-  const [availableVagues, setAvailableVagues] = useState<Vague[]>([]);
-
-  // Filtres des données actives
-  const activeSessions = useMemo(() => 
-    sessions?.filter(s => s?.active) || [], [sessions]
-  );
-  
-  const activeCentres = useMemo(() => 
+  const activeCentres = useMemo(() =>
     centresExamen?.filter(c => c?.active) || [], [centresExamen]
   );
-  
-  const activeLieux = useMemo(() => 
-    lieuxPratique?.filter(l => l?.active) || [], [lieuxPratique]
-  );
 
-  // Options pour les selects
   const permisOptions = [
     { label: 'A (Moto)', value: 'permis_a' },
     { label: 'B (Voiture)', value: 'permis_b' },
   ];
 
-  const coursOptions = [
-    { label: 'En ligne', value: 'en_ligne' },
-    { label: 'Présentiel (Samedi)', value: 'presentiel' },
-    { label: 'Les deux', value: 'les_deux' },
-  ];
-
-  const sessionOptions = useMemo(() => [
-    { label: 'Choisir une session', value: 0 },
-    ...activeSessions.map(s => ({ label: s.nom, value: s.id })),
-  ], [activeSessions]);
-
-  const vagueOptions = useMemo(() => [
-    { label: 'Choisir une vague', value: '' },
-    ...availableVagues.map(v => ({ label: `Vague ${v}`, value: v })),
-  ], [availableVagues]);
-
   const centreOptions = useMemo(() => [
     { label: 'Choisir un centre', value: 0 },
     ...activeCentres.map(c => ({
-      label: `${c.nom} ${c.ville ? `(${c.ville})` : ''}`,
+      label: `${c.nom}${c.ville ? ` (${c.ville})` : ''}`,
       value: c.id,
     })),
   ], [activeCentres]);
-
-  // Gestion des vagues disponibles
-  useEffect(() => {
-    if (formData.session_id === 0 || !sessions) {
-      setAvailableVagues([]);
-      setFormData(prev => ({ ...prev, vague: '' }));
-      return;
-    }
-
-    const selectedSession = sessions.find(s => s?.id === formData.session_id);
-    if (!selectedSession) {
-      setAvailableVagues([]);
-      return;
-    }
-
-    const vagues: Vague[] = [];
-    if (selectedSession.date_enregistrement_vague1) vagues.push('1');
-    if (selectedSession.date_enregistrement_vague2) vagues.push('2');
-    
-    setAvailableVagues(vagues);
-    
-    if (vagues.length === 1 && formData.vague !== vagues[0]) {
-      setFormData(prev => ({ ...prev, vague: vagues[0] }));
-    }
-  }, [formData.session_id, sessions]);
 
   const updateField = <K extends keyof typeof formData>(
     field: K,
     value: (typeof formData)[K]
   ) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const toggleLieuPratique = (id: number) => {
-    setFormData(prev => ({
-      ...prev,
-      lieux_pratique: prev.lieux_pratique.includes(id)
-        ? prev.lieux_pratique.filter(l => l !== id)
-        : [...prev.lieux_pratique, id]
-    }));
   };
 
   const handleNoCode = async () => {
@@ -240,6 +161,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         Toast.show({
           type: 'info',
           text1: 'Code par défaut appliqué',
+        });
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Impossible de récupérer le code',
         });
       }
     } catch (error) {
@@ -263,20 +189,12 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       Toast.show({ type: 'error', text1: 'Numéro invalide (9 chiffres)' });
       return false;
     }
-    if (formData.session_id === 0) {
-      Toast.show({ type: 'error', text1: 'Sélectionnez une session' });
-      return false;
-    }
-    if (formData.vague === '') {
-      Toast.show({ type: 'error', text1: 'Sélectionnez une vague' });
-      return false;
-    }
     if (formData.centre_examen_id === 0) {
-      Toast.show({ type: 'error', text1: 'Sélectionnez un centre d\'examen' });
+      Toast.show({ type: 'error', text1: "Sélectionnez un centre d'examen" });
       return false;
     }
-    if (formData.lieux_pratique.length === 0) {
-      Toast.show({ type: 'error', text1: 'Sélectionnez au moins un lieu' });
+    if (!formData.code_parrainage.trim()) {
+      Toast.show({ type: 'error', text1: 'Le code de parrainage est requis' });
       return false;
     }
     if (formData.password.length < 6) {
@@ -298,22 +216,22 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       const success = await register({
-        ...formData,
-        vague: formData.vague as Vague,
+        nom: formData.nom,
+        prenom: formData.prenom,
+        telephone: formData.telephone,
+        password: formData.password,
+        password_confirmation: formData.password_confirmation,
+        date_naissance: formData.date_naissance,
+        type_permis: formData.type_permis,
+        centre_examen_id: formData.centre_examen_id,
+        code_parrainage: formData.code_parrainage,
       });
 
       if (success) {
-        setLoading(false);
-        Toast.show({
-          type: 'success',
-          text1: 'Inscription réussie',
-        });
+        Toast.show({ type: 'success', text1: 'Inscription réussie' });
         navigation.goBack();
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Échec de l\'inscription',
-        });
+        Toast.show({ type: 'error', text1: "Échec de l'inscription" });
       }
     } catch (error: any) {
       Toast.show({
@@ -326,7 +244,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  if (!sessions || !centresExamen || !lieuxPratique) {
+  if (!centresExamen) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
@@ -363,7 +281,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           {/* Informations personnelles */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Informations personnelles</Text>
-            
+
             <Input
               label="Nom *"
               placeholder="Votre nom"
@@ -394,58 +312,20 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               editable={!loading}
               maxLength={9}
             />
-
-            <Input
-              label="Quartier (facultatif)"
-              placeholder="Votre quartier"
-              value={formData.quartier}
-              onChangeText={v => updateField('quartier', v)}
-              leftIcon="location-outline"
-              editable={!loading}
-            />
           </View>
 
-          {/* Configuration du permis */}
+          {/* Configuration */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Configuration</Text>
 
             <CustomSelect
-              label="Catégorie de permis"
+              label="Catégorie de permis *"
               value={formData.type_permis}
               placeholder="Choisir un type"
               options={permisOptions}
               onSelect={v => updateField('type_permis', v)}
               disabled={loading}
             />
-
-            <CustomSelect
-              label="Type de cours"
-              value={formData.type_cours}
-              placeholder="Choisir un type"
-              options={coursOptions}
-              onSelect={v => updateField('type_cours', v)}
-              disabled={loading}
-            />
-
-            <CustomSelect
-              label="Session *"
-              value={String(formData.session_id)}
-              placeholder="Choisir une session"
-              options={sessionOptions}
-              onSelect={v => updateField('session_id', Number(v))}
-              disabled={loading}
-            />
-
-            {availableVagues.length > 0 && (
-              <CustomSelect
-                label="Vague *"
-                value={formData.vague}
-                placeholder="Choisir une vague"
-                options={vagueOptions}
-                onSelect={v => updateField('vague', v as Vague)}
-                disabled={loading}
-              />
-            )}
 
             <CustomSelect
               label="Centre d'examen *"
@@ -457,45 +337,15 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* Lieux de pratique */}
+          {/* Parrainage & Sécurité */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Lieux de pratique *</Text>
-            <View style={styles.checkboxContainer}>
-              {activeLieux.map(lieu => (
-                <TouchableOpacity
-                  key={lieu.id}
-                  style={styles.checkboxItem}
-                  onPress={() => toggleLieuPratique(lieu.id)}
-                  disabled={loading}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      formData.lieux_pratique.includes(lieu.id) && styles.checkboxChecked,
-                    ]}
-                  >
-                    {formData.lieux_pratique.includes(lieu.id) && (
-                      <Text style={styles.checkmark}>✓</Text>
-                    )}
-                  </View>
-                  <Text style={styles.checkboxLabel}>
-                    {lieu.nom} {lieu.ville ? `(${lieu.ville})` : ''}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Sécurité */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Sécurité</Text>
+            <Text style={styles.sectionTitle}>Parrainage & Sécurité</Text>
 
             <Input
-              label="Code parrainage (facultatif)"
+              label="Code de parrainage *"
               placeholder="Code de votre parrain"
               value={formData.code_parrainage}
-              onChangeText={v => updateField('code_parrainage', v)}
+              onChangeText={v => updateField('code_parrainage', v.toUpperCase())}
               leftIcon="gift-outline"
               editable={!loading}
               autoCapitalize="characters"
@@ -530,9 +380,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
-          {/* Bouton d'inscription */}
           <Button
-            title={loading ? 'Inscription...' : 'S\'inscrire'}
+            title={loading ? 'Inscription...' : "S'inscrire"}
             onPress={handleRegister}
             loading={loading}
             disabled={loading}
@@ -598,7 +447,6 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
     marginTop: theme.spacing.sm,
   },
-  // Custom Select Styles
   selectWrapper: {
     marginBottom: theme.spacing.md,
   },
@@ -629,7 +477,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: theme.spacing.sm,
   },
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -689,38 +536,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginLeft: theme.spacing.sm,
-  },
-  // Checkbox Styles
-  checkboxContainer: {
-    gap: theme.spacing.sm,
-  },
-  checkboxItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: theme.spacing.xs,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-    marginRight: theme.spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: theme.colors.primary,
-  },
-  checkmark: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  checkboxLabel: {
-    ...theme.typography.body,
-    color: theme.colors.textPrimary,
-    flex: 1,
   },
   noCodeBtn: {
     alignSelf: 'flex-end',

@@ -1,5 +1,34 @@
 // Types pour l'API Auto École Ange Raphael
 
+export type CniStatut = 'non_soumis' | 'en_attente' | 'valide' | 'rejete';
+
+export interface CniInfo {
+  id: number;
+  statut: CniStatut;
+  motif_rejet?: string;
+  cni_recto_url?: string;
+  cni_verso_url?: string;
+  soumis_at?: string;
+  traite_at?: string;
+  complet: boolean;
+}
+
+export interface CniResponse {
+  success: boolean;
+  cni: CniInfo | null;
+  statut: CniStatut;
+  cni_recto_url?: string;
+  cni_verso_url?: string;
+}
+
+export interface CniUploadResponse {
+  success: boolean;
+  message: string;
+  url?: string;
+  complet: boolean;
+  statut: CniStatut;
+}
+
 export interface User {
   id: number;
   nom: string;
@@ -367,3 +396,5 @@ export type MainStackParamList = {
   Filleuls: undefined;
   ArbreParrainage: undefined;
 };
+
+

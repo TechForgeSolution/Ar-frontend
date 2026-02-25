@@ -30,6 +30,9 @@ import ParrainageScreen from '../screens/parrainage/ParrainageScreen';
 import FilleulsScreen from '../screens/parrainage/FilleulsScreen';
 import ArbreParrainageScreen from '../screens/parrainage/ArbreParrainageScreen';
 
+// CNI
+import CniInscriptionScreen from '../screens/cni/CniInscriptionscreen';
+
 const Stack = createNativeStackNavigator<MainStackParamList>();
 
 const MainNavigator: React.FC = () => {
@@ -148,6 +151,13 @@ const MainNavigator: React.FC = () => {
         name="ArbreParrainage" 
         component={ArbreParrainageScreen}
         options={{ title: 'Arbre de Parrainage' }}
+      />
+
+      {/* CNI - Inscription Examen */}
+      <Stack.Screen 
+        name="CniInscription" 
+        component={CniInscriptionScreen}
+        options={{ title: "Inscription à l'examen" }}
       />
     </Stack.Navigator>
   );
