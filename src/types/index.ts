@@ -294,6 +294,7 @@ export interface Correction {
   question_id: number;
   enonce: string;
   reponse_utilisateur: number;
+  reponse_utilisateur_texte: string | null; // ✅ Ajout
   bonne_reponse: number;
   bonne_reponse_texte: string;
   est_correct: boolean;
