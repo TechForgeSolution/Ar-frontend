@@ -1,7 +1,7 @@
 // ============================================
 // Configuration API - Auto École Ange Raphael
 // ============================================
-export const API_BASE_URL = 'https://ange-raphael.supahuman.site/api';
+export const API_BASE_URL = 'https://ange-raphael.tfs237.com/api';
 
 //export const API_BASE_URL = 'http://192.168.1.166:8000/api';
 
