@@ -1,407 +1,284 @@
 // screens/cni/CniInscriptionScreen.tsx
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import {
-  ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
-import { theme } from '../../config/theme';
-import { getCniStatus, uploadCni, deleteCniFace } from '../../services/cniService';
-import { CniInfo, CniStatut } from '../../types';
+import Svg, { Path } from 'react-native-svg';
 
-type Face = 'recto' | 'verso';
+const PRIMARY_BLUE = '#2563EB';
+const WHATSAPP_GREEN = '#25D366';
 
-interface FaceState {
-  uri: string | null;
-  uploading: boolean;
-}
-
-const STATUS_CONFIG: Record<CniStatut, { label: string; color: string; icon: string }> = {
-  non_soumis: { label: 'Non soumis',  color: theme.colors.textSecondary, icon: '📋' },
-  en_attente: { label: 'En attente',  color: '#F59E0B',                  icon: '⏳' },
-  valide:     { label: 'Validé ✓',    color: '#10B981',                  icon: '✅' },
-  rejete:     { label: 'Rejeté',      color: '#EF4444',                  icon: '❌' },
-};
+const WHATSAPP_NUMBER = '237659292001';   // sans le +
+const FULL_PHONE = '+237659292001';
 
 const CniInscriptionScreen: React.FC = () => {
-  const { token } = useAuth();
-  const navigation = useNavigation();
-
-  const [loading, setLoading] = useState(true);
-  const [cni, setCni]         = useState<CniInfo | null>(null);
-  const [statut, setStatut]   = useState<CniStatut>('non_soumis');
-
-  const [recto, setRecto] = useState<FaceState>({ uri: null, uploading: false });
-  const [verso, setVerso] = useState<FaceState>({ uri: null, uploading: false });
-
-  // ─── Chargement initial ──────────────────────────────────────────────────
-
-  const fetchCni = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await getCniStatus(token!);
-      setCni(res.cni);
-      setStatut(res.statut ?? res.cni?.statut ?? 'non_soumis');
-      // On stocke juste le fait qu'une image existe (true/false via uri non-null)
-      if (res.cni?.cni_recto_url) setRecto(p => ({ ...p, uri: res.cni!.cni_recto_url! }));
-      if (res.cni?.cni_verso_url) setVerso(p => ({ ...p, uri: res.cni!.cni_verso_url! }));
-    } catch (e) {
-      Alert.alert('Erreur', 'Impossible de récupérer le statut CNI.');
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
-
-  useEffect(() => { fetchCni(); }, [fetchCni]);
-
-  // ─── Sélection d'image ───────────────────────────────────────────────────
-
-  const askSource = (face: Face) => {
-    Alert.alert(
-      face === 'recto' ? 'CNI Recto' : 'CNI Verso',
-      "Choisissez la source de l'image",
-      [
-        { text: 'Galerie', onPress: () => pickFromGallery(face) },
-        { text: 'Caméra',  onPress: () => pickFromCamera(face)  },
-        { text: 'Annuler', style: 'cancel' },
-      ]
+  const handleOpenWhatsApp = async () => {
+    const message = encodeURIComponent(
+      'Bonjour 👋, j’ai soumis mes pièces CNI et je souhaite finaliser mon inscription à l’examen au centre CFPAM. Merci !'
     );
-  };
 
-  const pickFromGallery = async (face: Face) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission refusée', 'Accès à la galerie requis.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
-      allowsEditing: true,
-      aspect: [3, 2],
-    });
-    if (!result.canceled && result.assets[0]) handleImagePicked(face, result.assets[0].uri);
-  };
-
-  const pickFromCamera = async (face: Face) => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission refusée', 'Accès à la caméra requis.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.85,
-      allowsEditing: true,
-      aspect: [3, 2],
-    });
-    if (!result.canceled && result.assets[0]) handleImagePicked(face, result.assets[0].uri);
-  };
-
-  // ─── Upload ──────────────────────────────────────────────────────────────
-
-  const handleImagePicked = async (face: Face, uri: string) => {
-    const setter = face === 'recto' ? setRecto : setVerso;
-    setter(p => ({ ...p, uri, uploading: true }));
+    // Méthode simple et fiable (comme dans ton DashboardScreen)
+    const deepLink = `whatsapp://send?phone=${WHATSAPP_NUMBER}&text=${message}`;
 
     try {
-      const res = await uploadCni(token!, face, uri);
-      // On garde l'URI locale pour l'affichage (évite le bug d'URL distante)
-      setter(p => ({ ...p, uri: uri, uploading: false }));
-      setStatut(res.statut);
-      if (res.complet) {
-        Alert.alert('✅ Complet', 'Vos deux faces CNI ont été soumises. Nous allons traiter votre dossier.');
+      const supported = await Linking.canOpenURL(deepLink);
+
+      if (supported) {
+        await Linking.openURL(deepLink);
+        return;
       }
-    } catch (e: any) {
-      setter(p => ({ ...p, uploading: false }));
-      Alert.alert('Erreur upload', e?.message ?? 'Une erreur est survenue.');
+    } catch (e) {
+      // Si le deep link échoue, on passe directement au wa.me
+      console.log('Deep link non supporté, utilisation de wa.me');
+    }
+
+    // Fallback universel (fonctionne très bien pour WhatsApp + WhatsApp Business)
+    const waMeUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${message}`;
+
+    try {
+      await Linking.openURL(waMeUrl);
+    } catch (error) {
+      Alert.alert(
+        'WhatsApp non disponible',
+        'Veuillez installer WhatsApp ou WhatsApp Business.\n\nVous pouvez aussi contacter ce numéro manuellement :\n+237 6 59 29 20 01'
+      );
     }
   };
 
-  const handleDelete = (face: Face) => {
-    Alert.alert(
-      'Confirmer la suppression',
-      `Supprimer la face ${face} ?`,
-      [
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteCniFace(token!, face);
-              if (face === 'recto') setRecto({ uri: null, uploading: false });
-              else                  setVerso({ uri: null, uploading: false });
-              setStatut('en_attente');
-            } catch (e: any) {
-              Alert.alert('Erreur', e?.message ?? 'Suppression impossible.');
-            }
-          },
-        },
-        { text: 'Annuler', style: 'cancel' },
-      ]
-    );
-  };
-
-  // ─── Rendu ───────────────────────────────────────────────────────────────
-
-  const isReadonly = statut === 'valide';
-  const statusCfg  = STATUS_CONFIG[statut];
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-
-      {/* En-tête */}
-      <View style={styles.header}>
-        <Text style={styles.title}>📄 Inscription à l'examen</Text>
-        <Text style={styles.subtitle}>
-          Importez les deux faces de votre CNI pour que nous puissions procéder à votre inscription officielle.
-        </Text>
-      </View>
-
-      {/* Statut */}
-      <View style={[styles.statusBadge, { borderColor: statusCfg.color }]}>
-        <Text style={[styles.statusText, { color: statusCfg.color }]}>
-          {statusCfg.icon}  Statut : {statusCfg.label}
-        </Text>
-      </View>
-
-      {/* Motif rejet */}
-      {statut === 'rejete' && cni?.motif_rejet && (
-        <View style={styles.rejectBox}>
-          <Text style={styles.rejectTitle}>Motif du rejet :</Text>
-          <Text style={styles.rejectText}>{cni.motif_rejet}</Text>
-        </View>
-      )}
-
-      {/* Cards CNI */}
-      <CniCard
-        label="CNI Recto"
-        description="Face avant avec photo et informations"
-        face="recto"
-        state={recto}
-        readonly={isReadonly}
-        onPress={() => askSource('recto')}
-        onDelete={() => handleDelete('recto')}
-      />
-
-      <CniCard
-        label="CNI Verso"
-        description="Face arrière avec empreintes et signature"
-        face="verso"
-        state={verso}
-        readonly={isReadonly}
-        onPress={() => askSource('verso')}
-        onDelete={() => handleDelete('verso')}
-      />
-
-      {/* Note informative */}
-      <View style={styles.infoBox}>
-        <Text style={styles.infoText}>
-          💡 Assurez-vous que les images sont nettes, bien éclairées et lisibles. Les formats acceptés sont JPG, PNG et WEBP (max 10 Mo).
-        </Text>
-      </View>
-
-    </ScrollView>
+  // Icône officielle WhatsApp (identique à ton Dashboard)
+  const WhatsAppIcon = ({ size = 42 }: { size?: number }) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="#ffffff">
+      <Path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </Svg>
   );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Composant CniCard
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface CniCardProps {
-  label: string;
-  description: string;
-  face: Face;
-  state: FaceState;
-  readonly: boolean;
-  onPress: () => void;
-  onDelete: () => void;
-}
-
-const CniCard: React.FC<CniCardProps> = ({
-  label, description, face, state, readonly, onPress, onDelete,
-}) => {
-  const hasImage = !!state.uri;
 
   return (
-    <View style={cardStyles.card}>
-
-      {/* Titre de la card */}
-      <View style={cardStyles.cardHeader}>
-        <View>
-          <Text style={cardStyles.cardLabel}>{label}</Text>
-          <Text style={cardStyles.cardDescription}>{description}</Text>
-        </View>
-        {hasImage && !readonly && (
-          <Pressable onPress={onDelete} style={cardStyles.deleteBtn}>
-            <Text style={cardStyles.deleteBtnText}>🗑️</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* Zone image */}
-      <Pressable
-        onPress={readonly ? undefined : onPress}
-        style={[cardStyles.imageZone, hasImage && cardStyles.imageZoneFilled]}
-        disabled={readonly || state.uploading}
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
       >
-        {state.uploading ? (
-          // ── Chargement en cours ──
-          <View style={cardStyles.uploadingOverlay}>
-            <ActivityIndicator size="large" color="#fff" />
-            <Text style={cardStyles.uploadingText}>Envoi en cours…</Text>
+        {/* En-tête */}
+        <View style={styles.header}>
+          <View style={styles.headerIconContainer}>
+            <Text style={styles.headerIcon}>F</Text>
           </View>
+          <Text style={styles.title}>Finaliser votre inscription</Text>
+          <Text style={styles.subtitle}>
+            Votre demande est presque terminée !{' '}
+            <Text style={{ color: PRIMARY_BLUE }}>Une dernière étape</Text>
+          </Text>
+        </View>
 
-        ) : hasImage ? (
-          // ── Image déjà chargée → icône succès ──
-          <View style={cardStyles.successContainer}>
-            <Text style={cardStyles.successIcon}>✅</Text>
-            <Text style={cardStyles.successTitle}>Image chargée</Text>
-            {!readonly && (
-              <Text style={cardStyles.successSub}>Appuyez pour remplacer</Text>
-            )}
-          </View>
-
-        ) : (
-          // ── Aucune image ──
-          <View style={cardStyles.placeholder}>
-            <Text style={cardStyles.placeholderIcon}>
-              {face === 'recto' ? '🪪' : '📋'}
+        {/* Info Card */}
+        <View style={styles.infoCard}>
+          <View style={styles.iconRow}>
+            <Text style={styles.stepIcon}>📍</Text>
+            <Text style={styles.stepText}>
+              Rendez-vous au <Text style={{ fontWeight: '700' }}>Centre CFPAM</Text>
             </Text>
-            <Text style={cardStyles.placeholderText}>Appuyez pour ajouter</Text>
-            <Text style={cardStyles.placeholderSub}>Galerie ou Caméra</Text>
           </View>
-        )}
-      </Pressable>
 
-    </View>
+          <Text style={styles.description}>
+            Pour finaliser officiellement votre inscription à l’examen, vous devez vous présenter
+            physiquement au sein du centre du CFPAM.
+          </Text>
+
+          <View style={styles.divider} />
+
+          <View style={styles.iconRow}>
+            <Text style={styles.stepIcon}>💬</Text>
+            <Text style={styles.stepText}>
+              Contactez-nous via <Text style={{ fontWeight: '700', color: WHATSAPP_GREEN }}>WhatsApp</Text>
+            </Text>
+          </View>
+
+          <Text style={styles.description}>
+            Cliquez sur le bouton ci-dessous pour prendre rendez-vous et compléter votre dossier en
+            quelques minutes.
+          </Text>
+        </View>
+
+        {/* Bouton WhatsApp corrigé */}
+        <Pressable
+          style={styles.whatsappButton}
+          onPress={handleOpenWhatsApp}
+          android_ripple={{ color: '#ffffff30', radius: 300 }}
+        >
+          <View style={styles.whatsappContent}>
+            <View style={styles.whatsappIconContainer}>
+              <View style={styles.whatsappLogo}>
+                <WhatsAppIcon size={42} />
+              </View>
+            </View>
+
+            <View style={styles.whatsappTextContainer}>
+              <Text style={styles.whatsappMainText}>Ouvrir WhatsApp</Text>
+              <Text style={styles.whatsappNumber}>+237 6 59 29 20 01</Text>
+            </View>
+          </View>
+        </Pressable>
+
+        {/* Note de confiance */}
+        <View style={styles.footerNote}>
+          <Text style={styles.footerText}>
+            🔒 Votre inscription sera validée sur place après vérification des pièces.
+          </Text>
+          <Text style={styles.footerSub}>
+            Nous vous attendons au CFPAM ! 
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
-
+// Styles (inchangés sauf légère optimisation)
 const styles = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: theme.colors.background },
-  content:    { padding: 16, paddingBottom: 40 },
-  centered:   { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  container: { flex: 1 },
+  content: {
+    padding: 24,
+    paddingBottom: 40,
+  },
 
-  header:   { marginBottom: 20 },
-  title:    { fontSize: 22, fontWeight: '700', color: theme.colors.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 20 },
-
-  statusBadge: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+  header: { alignItems: 'center', marginBottom: 32 },
+  headerIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 999,
+    backgroundColor: `${PRIMARY_BLUE}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
+    shadowColor: PRIMARY_BLUE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerIcon: { fontSize: 40 },
+
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+
+  infoCard: {
     backgroundColor: '#fff',
-  },
-  statusText: { fontSize: 15, fontWeight: '600' },
-
-  rejectBox: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
-  },
-  rejectTitle: { fontWeight: '700', color: '#B91C1C', marginBottom: 4 },
-  rejectText:  { color: '#7F1D1D', fontSize: 13 },
-
-  infoBox: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-  },
-  infoText: { fontSize: 13, color: '#1D4ED8', lineHeight: 18 },
-});
-
-const cardStyles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 16,
-    padding: 16,
-    elevation: 2,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  cardHeader: {
+  iconRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  cardLabel:       { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-  cardDescription: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 2 },
+  stepIcon: { fontSize: 26, marginRight: 12 },
+  stepText: { fontSize: 18, color: '#0F172A' },
+  description: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#475569',
+    marginBottom: 20,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 16,
+  },
 
-  deleteBtn:     { padding: 6 },
-  deleteBtnText: { fontSize: 20 },
-
-  imageZone: {
-    height: 180,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: theme.colors.primary,
-    overflow: 'hidden',
+  whatsappButton: {
+    backgroundColor: WHATSAPP_GREEN,
+    borderRadius: 999,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    shadowColor: WHATSAPP_GREEN,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 12,
+    marginBottom: 24,
+  },
+  whatsappContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  whatsappIconContainer: {
+    width: 52,
+    height: 52,
+    backgroundColor: '#fff',
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFF',
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  imageZoneFilled: {
-    borderStyle: 'solid',
-    borderColor: '#10B981',
-    backgroundColor: '#F0FDF4',
-  },
-
-  // ── Succès ──
-  successContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  successIcon:  { fontSize: 56, marginBottom: 10 },
-  successTitle: { fontSize: 16, fontWeight: '700', color: '#10B981', marginBottom: 4 },
-  successSub:   { fontSize: 12, color: '#6B7280', textAlign: 'center' },
-
-  // ── Placeholder ──
-  placeholder:     { alignItems: 'center' },
-  placeholderIcon: { fontSize: 48, marginBottom: 8 },
-  placeholderText: { fontSize: 15, fontWeight: '600', color: theme.colors.primary },
-  placeholderSub:  { fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },
-
-  // ── Upload en cours ──
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+  whatsappLogo: {
+    width: 46,
+    height: 46,
+    backgroundColor: WHATSAPP_GREEN,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  uploadingText: { color: '#fff', marginTop: 10, fontWeight: '600' },
+  whatsappTextContainer: { alignItems: 'flex-start' },
+  whatsappMainText: {
+    color: '#fff',
+    fontSize: 19,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  whatsappNumber: {
+    color: '#ffffffdd',
+    fontSize: 15.5,
+    fontWeight: '600',
+  },
+
+  footerNote: { alignItems: 'center' },
+  footerText: {
+    fontSize: 14,
+    color: PRIMARY_BLUE,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  footerSub: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+  },
 });
 
 export default CniInscriptionScreen;

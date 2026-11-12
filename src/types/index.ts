@@ -57,6 +57,14 @@ export interface User {
   centreExamen?: CentreExamen;
   parrain?: ParrainInfo;
   lieuxPratique?: LieuPratique[];
+  // Ajoutez dans l'interface User :
+  auth_provider: 'telephone' | 'email' | 'google' | 'apple';
+  email?: string;
+  email_verified: boolean;
+  telephone_verified: boolean;
+  profil_complet: boolean;
+  firebase_uid?: string;
+
 }
 
 export type FraisStatus = 'non_paye' | 'paye' | 'dispense';
@@ -223,6 +231,7 @@ export interface Module {
   chapitres: Chapitre[];
 }
 
+
 export interface Chapitre {
   id: number;
   nom: string;
@@ -372,6 +381,31 @@ export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   Register: undefined;
+  OtpVerification: {
+    mode: 'email_verification';
+    email: string;
+  } | {
+    mode: 'telephone_registration';
+    telephone: string;
+    registrationData: {
+      nom: string;
+      prenom: string;
+      telephone: string;
+      password: string;
+      password_confirmation: string;
+      type_permis: string;
+      centre_examen_id?: number;
+      code_parrainage: string;
+    };
+  } | {
+    mode: 'telephone_recovery';
+    telephone: string;
+  } | {
+    mode?: undefined;
+    telephone?: string;
+    email?: undefined;
+  };
+  RegisterCompletion: undefined;
   ForgotPassword: undefined;
 };
 
@@ -385,8 +419,7 @@ export type MainStackParamList = {
   PayerFrais: undefined;
   CoursTheorique: undefined;
   CoursPratique: undefined;
-  ModuleDetail: { moduleId: number; type: 'theorique' | 'pratique' };
-  ChapitreDetail: { chapitreId: number; moduleId: number; type: 'theorique' | 'pratique' };
+ModuleDetail: { moduleId: number; type: 'theorique' | 'pratique'; premierDepotEffectue?: boolean };  ChapitreDetail: { chapitreId: number; moduleId: number; type: 'theorique' | 'pratique' };
   LeconDetail: { leconId: number; chapitreId: number; moduleId: number; type: 'theorique' | 'pratique' };
   LeconWebView: { url: string; titre: string; leconId: number };
   LeconVideo: { url: string; titre: string; leconId: number; contenu?: string };
@@ -397,5 +430,4 @@ export type MainStackParamList = {
   Filleuls: undefined;
   ArbreParrainage: undefined;
 };
-
 

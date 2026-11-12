@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../config/api';
 import { Filleul } from '../../types';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const FilleulsScreen: React.FC = () => {
   const { token } = useAuth();
@@ -69,9 +70,7 @@ const FilleulsScreen: React.FC = () => {
         </View>
         <View style={styles.headerInfo}>
           <Text style={styles.filleulName}>{item.prenom} {item.nom}</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.niveau_label || `Niveau ${item.niveau}`}</Text>
-          </View>
+          
         </View>
       </View>
 
@@ -117,12 +116,11 @@ const FilleulsScreen: React.FC = () => {
   );
 
   return (
+    <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Mes Filleuls</Text>
-        <View style={styles.totalBadge}>
-          <Text style={styles.totalText}>{filleuls.length}</Text>
-        </View>
+        
       </View>
 
       <FlatList
@@ -143,6 +141,7 @@ const FilleulsScreen: React.FC = () => {
         }
       />
     </View>
+    </SafeAreaView>
   );
 };
 
@@ -209,7 +208,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#6C63FF',
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

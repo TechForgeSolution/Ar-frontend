@@ -9,14 +9,19 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../../config/theme';
 import { apiRequest } from '../../config/api';
-import { Module, ProgressionType } from '../../types';
+import { Module, ProgressionType, MainStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import Toast from 'react-native-toast-message';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-export default function CoursTheoriqueScreen({ navigation }: any) {
+type NavProp = NativeStackNavigationProp<MainStackParamList>;
+
+export default function CoursTheoriqueScreen() {
+  const navigation = useNavigation<NavProp>();
   const [modules, setModules] = useState<Module[]>([]);
   const [progression, setProgression] = useState<ProgressionType | null>(null);
   const [premierDepotEffectue, setPremierDepotEffectue] = useState(false);
@@ -97,7 +102,7 @@ export default function CoursTheoriqueScreen({ navigation }: any) {
         <Ionicons name="information-circle" size={32} color={theme.colors.warning} />
         <Text style={styles.infoTitle}>Accès limité</Text>
         <Text style={styles.infoText}>
-          Vous pouvez consulter la structure des cours (modules, chapitres, leçons), 
+          Vous pouvez consulter la structure des cours (modules, chapitres, leçons),
           mais pour accéder au contenu complet des leçons, veuillez effectuer votre premier dépôt.
         </Text>
         <TouchableOpacity
@@ -114,10 +119,10 @@ export default function CoursTheoriqueScreen({ navigation }: any) {
     <TouchableOpacity
       style={styles.moduleCard}
       onPress={() => {
-        navigation.navigate('ModuleDetail', { 
-          moduleId: item.id, 
+        navigation.navigate('ModuleDetail', {
+          moduleId: item.id,
           type: 'theorique',
-          premierDepotEffectue 
+          premierDepotEffectue,
         });
       }}
     >
@@ -166,33 +171,33 @@ export default function CoursTheoriqueScreen({ navigation }: any) {
   }
 
   return (
-     <SafeAreaProvider>
-        <SafeAreaView style={styles.container}>
-      <FlatList
-        data={modules}
-        renderItem={renderModuleItem}
-        keyExtractor={(item) => item.id.toString()}
-        ListHeaderComponent={
-          <>
-            {renderDepotInfoCard()}
-            {renderProgressCard()}
-          </>
-        }
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <View style={styles.centered}>
-            <Ionicons name="book-outline" size={64} color={theme.colors.textMuted} />
-            <Text style={styles.emptyTitle}>Aucun module disponible</Text>
-            <Text style={styles.emptyText}>
-              Les cours théoriques seront bientôt disponibles
-            </Text>
-          </View>
-        }
-      />
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        <FlatList
+          data={modules}
+          renderItem={renderModuleItem}
+          keyExtractor={(item) => item.id.toString()}
+          ListHeaderComponent={
+            <>
+              {renderDepotInfoCard()}
+              {renderProgressCard()}
+            </>
+          }
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Ionicons name="book-outline" size={64} color={theme.colors.textMuted} />
+              <Text style={styles.emptyTitle}>Aucun module disponible</Text>
+              <Text style={styles.emptyText}>
+                Les cours théoriques seront bientôt disponibles
+              </Text>
+            </View>
+          }
+        />
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 }

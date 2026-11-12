@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -20,7 +21,6 @@ import { apiRequest } from '../../config/api';
 import { Paiement } from '../../types';
 import { formatCurrency, formatDateTime } from '../../utils/formatters';
 import Toast from 'react-native-toast-message';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HistoriqueScreen() {
   const { token, user } = useAuth();
@@ -34,181 +34,126 @@ export default function HistoriqueScreen() {
 
   const loadHistorique = async () => {
     try {
-      const response = await apiRequest<{
-        success: boolean;
-        paiements: Paiement[];
-        solde_actuel: number;
-      }>('/historique?limit=50', { method: 'GET' }, token);
-
-      if (response.success) {
-        setPaiements(response.paiements);
-      }
+      const response = await apiRequest<{ success: boolean; paiements: Paiement[]; solde_actuel: number }>(
+        '/historique?limit=50', { method: 'GET' }, token
+      );
+      if (response.success) setPaiements(response.paiements);
     } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erreur',
-        text2: error.message || 'Impossible de charger l\'historique',
-      });
+      Toast.show({ type: 'error', text1: 'Erreur', text2: error.message || 'Impossible de charger l\'historique' });
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadHistorique();
-  };
+  const handleRefresh = () => { setIsRefreshing(true); loadHistorique(); };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'depot':
-        return (
-          <ArrowDownCircle size={24} color={theme.colors.success} />
-        );
       case 'transfert_entrant':
-        return (
-          <ArrowDownCircle size={24} color={theme.colors.success} />
-        );
+        return <ArrowDownCircle size={22} color="#22C55E" />;
       case 'transfert_sortant':
-        return (
-          <ArrowUpCircle size={24} color={theme.colors.warning} />
-        );
+        return <ArrowUpCircle size={22} color="#D97706" />;
       case 'paiement_frais':
-        return (
-          <CreditCard size={24} color={theme.colors.error} />
-        );
+        return <CreditCard size={22} color="#EF4444" />;
       default:
-        return (
-          <Wallet size={24} color={theme.colors.textSecondary} />
-        );
+        return <Wallet size={22} color="#94A3B8" />;
     }
   };
 
   const getTransactionColor = (type: string) => {
     switch (type) {
       case 'depot':
-      case 'transfert_entrant':
-        return theme.colors.success;
-      case 'transfert_sortant':
-        return theme.colors.warning;
-      case 'paiement_frais':
-        return theme.colors.error;
-      default:
-        return theme.colors.textSecondary;
+      case 'transfert_entrant': return '#22C55E';
+      case 'transfert_sortant': return '#D97706';
+      case 'paiement_frais': return '#EF4444';
+      default: return '#94A3B8';
+    }
+  };
+
+  const getTransactionIconBg = (type: string) => {
+    switch (type) {
+      case 'depot':
+      case 'transfert_entrant': return '#F0FDF4';
+      case 'transfert_sortant': return '#FFFBEB';
+      case 'paiement_frais': return '#FEF2F2';
+      default: return '#F8FAFC';
     }
   };
 
   const getTransactionLabel = (type: string) => {
     switch (type) {
-      case 'depot':
-        return 'Depot';
-      case 'transfert_entrant':
-        return 'Transfert recu';
-      case 'transfert_sortant':
-        return 'Transfert envoye';
-      case 'paiement_frais':
-        return 'Paiement de frais';
-      default:
-        return 'Transaction';
+      case 'depot': return 'Dépôt';
+      case 'transfert_entrant': return 'Transfert reçu';
+      case 'transfert_sortant': return 'Transfert envoyé';
+      case 'paiement_frais': return 'Paiement de frais';
+      default: return 'Transaction';
     }
   };
 
   const getMethodeLabel = (methode: string) => {
     switch (methode) {
-      case 'mobile_money':
-        return 'Mobile Money';
-      case 'code_caisse':
-        return 'Code Caisse';
-      case 'transfert':
-        return 'Transfert';
-      case 'systeme':
-        return 'Systeme';
-      default:
-        return methode;
+      case 'mobile_money': return 'Mobile Money';
+      case 'code_caisse': return 'Code Caisse';
+      case 'transfert': return 'Transfert';
+      case 'systeme': return 'Système';
+      default: return methode;
     }
   };
 
   const renderPaiement = ({ item }: { item: Paiement }) => {
     const isPositive = item.type === 'depot' || item.type === 'transfert_entrant';
+    const color = getTransactionColor(item.type);
+    const bgColor = getTransactionIconBg(item.type);
 
     return (
-      <View style={styles.paiementCard}>
-        <View style={styles.paiementIcon}>
+      <View style={styles.transactionCard}>
+        {/* Icon */}
+        <View style={[styles.transactionIconBox, { backgroundColor: bgColor }]}>
           {getTransactionIcon(item.type)}
         </View>
 
-        <View style={styles.paiementContent}>
-          <View style={styles.paiementHeader}>
-            <Text style={styles.paiementType}>
-              {getTransactionLabel(item.type)}
-            </Text>
-            <Text
-              style={[
-                styles.paiementMontant,
-                { color: getTransactionColor(item.type) },
-              ]}
-            >
-              {isPositive ? '+' : '-'}
-              {formatCurrency(item.montant)}
+        {/* Content */}
+        <View style={styles.transactionContent}>
+          <View style={styles.transactionTopRow}>
+            <Text style={styles.transactionLabel}>{getTransactionLabel(item.type)}</Text>
+            <Text style={[styles.transactionMontant, { color }]}>
+              {isPositive ? '+' : '-'}{formatCurrency(item.montant)}
             </Text>
           </View>
 
           {item.description && (
-            <Text style={styles.paiementDescription} numberOfLines={2}>
+            <Text style={styles.transactionDescription} numberOfLines={2}>
               {item.description}
             </Text>
           )}
 
-          <View style={styles.paiementFooter}>
-            <View style={styles.paiementDetail}>
-              <Calendar size={12} color={theme.colors.textMuted} />
-              <Text style={styles.paiementDetailText}>
-                {formatDateTime(item.created_at)}
-              </Text>
+          <View style={styles.transactionMeta}>
+            <View style={styles.metaLeft}>
+              <Calendar size={11} color="#94A3B8" />
+              <Text style={styles.metaText}>{formatDateTime(item.created_at)}</Text>
             </View>
-            <Text style={styles.paiementMethode}>
-              {getMethodeLabel(item.methode)}
-            </Text>
+            <Text style={styles.methodeLabel}>{getMethodeLabel(item.methode)}</Text>
           </View>
 
-          <View style={styles.soldeInfo}>
-            <Text style={styles.soldeLabel}>
-              Solde: {formatCurrency(item.solde_avant)}
-            </Text>
-            <ArrowUpCircle
-              size={12}
-              color={theme.colors.textMuted}
-              style={styles.soldeArrow}
-            />
-            <Text style={styles.soldeLabel}>
-              {formatCurrency(item.solde_apres)}
-            </Text>
+          {/* Solde before/after */}
+          <View style={styles.soldeLine}>
+            <Text style={styles.soldeText}>{formatCurrency(item.solde_avant)}</Text>
+            <View style={styles.soldeArrowLine} />
+            <Text style={styles.soldeText}>{formatCurrency(item.solde_apres)}</Text>
           </View>
 
+          {/* Status badge (only if not 'valide') */}
           {item.status && item.status !== 'valide' && (
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor:
-                    item.status === 'en_attente'
-                      ? theme.colors.warning + '20'
-                      : theme.colors.error + '20',
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  {
-                    color:
-                      item.status === 'en_attente'
-                        ? theme.colors.warning
-                        : theme.colors.error,
-                  },
-                ]}
-              >
+            <View style={[
+              styles.statusBadge,
+              { backgroundColor: item.status === 'en_attente' ? '#FEF9C3' : '#FEF2F2' }
+            ]}>
+              <Text style={[
+                styles.statusText,
+                { color: item.status === 'en_attente' ? '#D97706' : '#EF4444' }
+              ]}>
                 {item.status === 'en_attente' ? 'En attente' : item.status}
               </Text>
             </View>
@@ -221,34 +166,37 @@ export default function HistoriqueScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
   }
 
   return (
-     <SafeAreaProvider>
-        <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.wrapper} edges={['top', 'left', 'right', 'bottom']}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Historique des transactions</Text>
+        <Text style={styles.headerTitle}>HISTORIQUE</Text>
         {user && (
-          <View style={styles.soldeCard}>
-            <Text style={styles.soldeCardLabel}>Solde actuel</Text>
-            <Text style={styles.soldeCardAmount}>
-              {formatCurrency(user.solde)}
-            </Text>
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>SOLDE ACTUEL</Text>
+            <View style={styles.balanceRow}>
+              <Text style={styles.balanceAmount}>{formatCurrency(user.solde)}</Text>
+              <View style={styles.balanceIconContainer}>
+                <Wallet size={20} color="#2563EB" />
+              </View>
+            </View>
           </View>
         )}
       </View>
 
       {paiements.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Wallet size={64} color={theme.colors.textMuted} />
+          <View style={styles.emptyIconBox}>
+            <Wallet size={40} color="#94A3B8" />
+          </View>
           <Text style={styles.emptyTitle}>Aucune transaction</Text>
-          <Text style={styles.emptyText}>
-            Votre historique de transactions apparaitra ici
-          </Text>
+          <Text style={styles.emptyText}>Votre historique de transactions apparaîtra ici</Text>
         </View>
       ) : (
         <FlatList
@@ -256,164 +204,212 @@ export default function HistoriqueScreen() {
           renderItem={renderPaiement}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-            />
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#2563EB" />
           }
         />
       )}
     </SafeAreaView>
-    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F1F5F9',
+    gap: 12,
   },
   loadingText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.md,
+    fontSize: 14,
+    color: '#64748B',
   },
+
+  // Header
   header: {
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-    gap: theme.spacing.md,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  title: {
-    ...theme.typography.h2,
-    color: theme.colors.textPrimary,
-  },
-  soldeCard: {
-    backgroundColor: theme.colors.primary + '10',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  soldeCardLabel: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-  },
-  soldeCardAmount: {
-    ...theme.typography.h4,
-    color: theme.colors.primary,
+  headerTitle: {
+    fontSize: 11,
     fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1.2,
+    marginBottom: 10,
   },
-  listContainer: {
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
+
+  // Balance Card
+  balanceCard: {
+    backgroundColor: '#DBEAFE',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 8,
   },
-  paiementCard: {
+  balanceLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+  balanceRow: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.md,
-    gap: theme.spacing.md,
-    ...theme.shadows.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  paiementIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceVariant,
+  balanceAmount: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    letterSpacing: 0.5,
+  },
+  balanceIconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  paiementContent: {
+
+  // List
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 10,
+  },
+
+  // Transaction card
+  transactionCard: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    padding: 14,
+    gap: 12,
+  },
+  transactionIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  transactionContent: {
     flex: 1,
-    gap: theme.spacing.xs,
+    gap: 5,
   },
-  paiementHeader: {
+  transactionTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  paiementType: {
-    ...theme.typography.body,
-    fontWeight: '600',
-    color: theme.colors.textPrimary,
-  },
-  paiementMontant: {
-    ...theme.typography.body,
+  transactionLabel: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#1E293B',
   },
-  paiementDescription: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
+  transactionMontant: {
+    fontSize: 15,
+    fontWeight: '800',
   },
-  paiementFooter: {
+  transactionDescription: {
+    fontSize: 12,
+    color: '#64748B',
+    lineHeight: 16,
+  },
+  transactionMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: theme.spacing.xs,
+    marginTop: 2,
   },
-  paiementDetail: {
+  metaLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.xs,
+    gap: 4,
   },
-  paiementDetailText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
+  metaText: {
+    fontSize: 11,
+    color: '#94A3B8',
   },
-  paiementMethode: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
+  methodeLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
     fontStyle: 'italic',
   },
-  soldeInfo: {
+
+  // Solde before/after
+  soldeLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: theme.spacing.xs,
-    paddingTop: theme.spacing.xs,
+    paddingTop: 6,
+    marginTop: 2,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.borderLight,
+    borderTopColor: '#F1F5F9',
+    gap: 8,
   },
-  soldeLabel: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
+  soldeText: {
+    fontSize: 11,
+    color: '#94A3B8',
   },
-  soldeArrow: {
-    marginHorizontal: theme.spacing.xs,
+  soldeArrowLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
   },
+
+  // Status badge
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: theme.borderRadius.sm,
-    marginTop: theme.spacing.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    marginTop: 2,
   },
   statusText: {
-    ...theme.typography.caption,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
+
+  // Empty state
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: theme.spacing.xl,
+    padding: 40,
+    gap: 12,
+  },
+  emptyIconBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    marginBottom: 4,
   },
   emptyTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.textPrimary,
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   emptyText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
+    fontSize: 13,
+    color: '#94A3B8',
     textAlign: 'center',
+    lineHeight: 19,
   },
 });

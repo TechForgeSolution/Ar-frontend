@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "255260256264",
+    "project_id": "tfs-app-90800",
+    "storage_bucket": "tfs-app-90800.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:255260256264:android:4ed587f87599a6b7b189bd",
+        "android_client_info": {
+          "package_name": "com.anonymous.angeraphael"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "255260256264-33f48vieuld5ksn4482prqcqfa6mj54f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.angeraphael",
+            "certificate_hash": "acdd0271301a48105d4f590bd5d07a095d8e74a1"
+          }
+        },
+        {
+          "client_id": "255260256264-64k2ps3p1gdcmjitcgefecgf6boebnht.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.anonymous.angeraphael",
+            "certificate_hash": "0ba2b80deba34004ce71a0d0b8ee2117b0c58ede"
+          }
+        },
+        {
+          "client_id": "255260256264-4ifmjc95sfe1lf8mhq1h89nb63gctr65.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCo26hb6XtU370U3rbu1RZlB1_cHfw1lH4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "255260256264-4ifmjc95sfe1lf8mhq1h89nb63gctr65.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

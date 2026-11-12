@@ -1,166 +1,248 @@
-import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { MainStackParamList } from '../types';
-import { theme } from '../config/theme';
+import React, { useRef, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Platform,
+} from 'react-native';
+import PagerView from 'react-native-pager-view';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
-// Dashboard & Profile
+// Screens
 import DashboardScreen from '../screens/main/DashboardScreen';
-import ProfileScreen from '../screens/main/ProfileScreen';
-import EditProfileScreen from '../screens/main/EditProfileScreen';
-
-// Paiement
-import PaiementScreen from '../screens/paiement/PaiementScreen';
-import TransfertScreen from '../screens/paiement/TransfertScreen';
-import HistoriqueScreen from '../screens/paiement/HistoriqueScreen';
-import PayerFraisScreen from '../screens/paiement/PayerFraisScreen';
-
-// Cours
 import CoursTheoriqueScreen from '../screens/cours/CoursTheoriqueScreen';
 import CoursPratiqueScreen from '../screens/cours/CoursPratiqueScreen';
-import ModuleDetailScreen from '../screens/cours/ModuleDetailScreen';
-import ChapitreDetailScreen from '../screens/cours/ChapitreDetailScreen';
-import LeconDetailScreen from '../screens/cours/LeconDetailScreen';
-import LeconWebViewScreen from '../screens/cours/LeconWebViewScreen';
-import LeconVideoScreen from '../screens/cours/LeconVideoScreen';
-import QuizScreen from '../screens/cours/QuizScreen';
-import QuizResultatScreen from '../screens/cours/QuizResultatScreen';
-
-// Parrainage
 import ParrainageScreen from '../screens/parrainage/ParrainageScreen';
-import FilleulsScreen from '../screens/parrainage/FilleulsScreen';
-import ArbreParrainageScreen from '../screens/parrainage/ArbreParrainageScreen';
 
-// CNI
-import CniInscriptionScreen from '../screens/cni/CniInscriptionscreen';
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const Stack = createNativeStackNavigator<MainStackParamList>();
+const ACTIVE_COLOR = '#2D5BE3';
+const INACTIVE_COLOR = '#A0A9B8';
+const BG_COLOR = '#FFFFFF';
+
+const TABS = [
+  { name: 'Dashboard',  label: 'Accueil'    },
+  { name: 'Theorique',  label: 'Théorique'  },
+  { name: 'Pratique',   label: 'Pratique'   },
+  { name: 'Parrainage', label: 'Parrainage' },
+] as const;
+
+// ─── Icons ────────────────────────────────────────────────────────────────────
+
+const HomeIcon = ({ color }: { color: string }) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"
+      stroke={color} strokeWidth={1.8} strokeLinejoin="round"
+    />
+    <Path
+      d="M9 21V12h6v9"
+      stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const BookIcon = ({ color }: { color: string }) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Path d="M4 19.5A2.5 2.5 0 016.5 17H20" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    <Path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" stroke={color} strokeWidth={1.8} strokeLinejoin="round" />
+    <Path d="M8 7h8M8 11h5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
+const CarIcon = ({ color }: { color: string }) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Path d="M5 11l1.5-4.5h11L19 11" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Rect x={2} y={11} width={20} height={7} rx={1.5} stroke={color} strokeWidth={1.8} />
+    <Circle cx={6.5} cy={18} r={2} stroke={color} strokeWidth={1.8} />
+    <Circle cx={17.5} cy={18} r={2} stroke={color} strokeWidth={1.8} />
+    <Path d="M8.5 18h7" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
+const ParrainageIcon = ({ color }: { color: string }) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={5} r={2.5} stroke={color} strokeWidth={1.8} />
+    <Circle cx={5} cy={17} r={2.5} stroke={color} strokeWidth={1.8} />
+    <Circle cx={19} cy={17} r={2.5} stroke={color} strokeWidth={1.8} />
+    <Path d="M12 7.5v3M12 10.5l-5.5 4M12 10.5l5.5 4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
+function TabIcon({ name, color }: { name: string; color: string }) {
+  switch (name) {
+    case 'Dashboard':  return <HomeIcon color={color} />;
+    case 'Theorique':  return <BookIcon color={color} />;
+    case 'Pratique':   return <CarIcon color={color} />;
+    case 'Parrainage': return <ParrainageIcon color={color} />;
+    default:           return null;
+  }
+}
+
+// ─── Custom Bottom Tab Bar ────────────────────────────────────────────────────
+
+interface TabBarProps {
+  activeIndex: number;
+  onTabPress: (index: number) => void;
+}
+
+function CustomTabBar({ activeIndex, onTabPress }: TabBarProps) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.tabBarWrapper, { paddingBottom: insets.bottom }]}>
+      <View style={styles.topBorder} />
+      <View style={styles.tabBar}>
+        {TABS.map((tab, index) => {
+          const isFocused = activeIndex === index;
+          const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
+
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              activeOpacity={0.7}
+              onPress={() => onTabPress(index)}
+              style={styles.tabItem}
+              accessibilityRole="button"
+              accessibilityState={isFocused ? { selected: true } : {}}
+            >
+              {/* Active dot indicator */}
+              <View style={[styles.indicator, isFocused && styles.indicatorActive]} />
+
+              <View style={styles.iconWrapper}>
+                <TabIcon name={tab.name} color={color} />
+              </View>
+
+              <Text style={[styles.label, { color }]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+// ─── Main Navigator ───────────────────────────────────────────────────────────
 
 const MainNavigator: React.FC = () => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const pagerRef = useRef<PagerView>(null);
+
+  // Tap sur un onglet → déplace le pager avec animation
+  const handleTabPress = useCallback((index: number) => {
+    pagerRef.current?.setPage(index);
+    setActiveIndex(index);
+  }, []);
+
+  // Swipe → met à jour l'onglet actif dans la tab bar
+  const handlePageSelected = useCallback(
+    (e: { nativeEvent: { position: number } }) => {
+      setActiveIndex(e.nativeEvent.position);
+    },
+    [],
+  );
+
   return (
-    <Stack.Navigator
-      initialRouteName="Dashboard"
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.primary,
-        },
-        headerTintColor: theme.colors.textInverse,
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
-        contentStyle: { backgroundColor: theme.colors.background },
-      }}
-    >
-      {/* Dashboard & Profile */}
-      <Stack.Screen 
-        name="Dashboard" 
-        component={DashboardScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen 
-        name="Profile" 
-        component={ProfileScreen}
-        options={{ title: 'Mon Profil' }}
-      />
-      <Stack.Screen 
-        name="EditProfile" 
-        component={EditProfileScreen}
-        options={{ title: 'Modifier le Profil' }}
-      />
+    <View style={styles.container}>
+      {/*
+       * PagerView gère le swipe horizontal natif.
+       * Chaque enfant direct est une "page" identifiée par key.
+       * overdrag=false évite le rebond excessif sur iOS.
+       */}
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={0}
+        onPageSelected={handlePageSelected}
+        overdrag={false}
+      >
+        <View key="0" style={styles.page}>
+          <DashboardScreen />
+        </View>
 
-      {/* Paiement */}
-      <Stack.Screen 
-        name="Paiement" 
-        component={PaiementScreen}
-        options={{ title: 'Recharger mon compte' }}
-      />
-      <Stack.Screen 
-        name="Transfert" 
-        component={TransfertScreen}
-        options={{ title: 'Transférer' }}
-      />
-      <Stack.Screen 
-        name="Historique" 
-        component={HistoriqueScreen}
-        options={{ title: 'Historique' }}
-      />
-      <Stack.Screen 
-        name="PayerFrais" 
-        component={PayerFraisScreen}
-        options={{ title: 'Payer les Frais' }}
-      />
+        <View key="1" style={styles.page}>
+          <CoursTheoriqueScreen />
+        </View>
 
-      {/* Cours Théorique */}
-      <Stack.Screen 
-        name="CoursTheorique" 
-        component={CoursTheoriqueScreen}
-        options={{ title: 'Cours Théoriques' }}
-      />
-      <Stack.Screen 
-        name="CoursPratique" 
-        component={CoursPratiqueScreen}
-        options={{ title: 'Cours Pratiques' }}
-      />
-      <Stack.Screen 
-        name="ModuleDetail" 
-        component={ModuleDetailScreen}
-        options={{ title: 'Module' }}
-      />
-      <Stack.Screen 
-        name="ChapitreDetail" 
-        component={ChapitreDetailScreen}
-        options={{ title: 'Chapitre' }}
-      />
-      <Stack.Screen 
-        name="LeconDetail" 
-        component={LeconDetailScreen}
-        options={{ title: 'Leçon' }}
-      />
-      <Stack.Screen 
-        name="LeconWebView" 
-        component={LeconWebViewScreen}
-        options={{ title: 'Cours' }}
-      />
-      <Stack.Screen 
-        name="LeconVideo" 
-        component={LeconVideoScreen}
-        options={{ title: 'Cours Vidéo' }}
-      />
-      <Stack.Screen 
-        name="Quiz" 
-        component={QuizScreen}
-        options={{ title: 'Quiz', headerBackVisible: false }}
-      />
-      <Stack.Screen 
-        name="QuizResultat" 
-        component={QuizResultatScreen}
-        options={{ title: 'Résultat du Quiz', headerBackVisible: false }}
-      />
+        <View key="2" style={styles.page}>
+          <CoursPratiqueScreen />
+        </View>
 
-      {/* Parrainage */}
-      <Stack.Screen 
-        name="Parrainage" 
-        component={ParrainageScreen}
-        options={{ title: 'Parrainage' }}
-      />
-      <Stack.Screen 
-        name="Filleuls" 
-        component={FilleulsScreen}
-        options={{ title: 'Mes Filleuls' }}
-      />
-      <Stack.Screen 
-        name="ArbreParrainage" 
-        component={ArbreParrainageScreen}
-        options={{ title: 'Arbre de Parrainage' }}
-      />
+        <View key="3" style={styles.page}>
+          <ParrainageScreen />
+        </View>
+      </PagerView>
 
-      {/* CNI - Inscription Examen */}
-      <Stack.Screen 
-        name="CniInscription" 
-        component={CniInscriptionScreen}
-        options={{ title: "Inscription à l'examen" }}
-      />
-    </Stack.Navigator>
+      <CustomTabBar activeIndex={activeIndex} onTabPress={handleTabPress} />
+    </View>
   );
 };
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F4F6FA',
+  },
+  pager: {
+    flex: 1,
+  },
+  page: {
+    flex: 1,
+  },
+
+  // ── Tab bar
+  tabBarWrapper: {
+    backgroundColor: BG_COLOR,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
+  topBorder: {
+    height: 1,
+    backgroundColor: '#F0F2F5',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    height: 60,
+    backgroundColor: BG_COLOR,
+    alignItems: 'center',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+  },
+  indicator: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'transparent',
+    marginBottom: 4,
+  },
+  indicatorActive: {
+    backgroundColor: ACTIVE_COLOR,
+  },
+  iconWrapper: {
+    marginBottom: 3,
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+});
 
 export default MainNavigator;

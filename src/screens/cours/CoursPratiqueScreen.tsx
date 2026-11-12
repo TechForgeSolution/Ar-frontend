@@ -11,12 +11,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../config/theme';
 import { apiRequest } from '../../config/api';
-import { Module, ProgressionType } from '../../types';
+import { Module, ProgressionType, MainStackParamList } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import Toast from 'react-native-toast-message';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-export default function CoursPratiqueScreen({ navigation }: any) {
+
+export default function CoursPratiqueScreen() {
+
+  const navigation = useNavigation<NativeStackNavigationProp<MainStackParamList>>();
   const [modules, setModules] = useState<Module[]>([]);
   const [progression, setProgression] = useState<ProgressionType | null>(null);
   const [premierDepotEffectue, setPremierDepotEffectue] = useState(false);

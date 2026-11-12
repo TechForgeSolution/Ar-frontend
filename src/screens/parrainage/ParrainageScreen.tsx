@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../config/api';
 import { MainStackParamList } from '../../types';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'Parrainage'>;
 
@@ -33,12 +34,13 @@ interface ParrainageInfo {
   };
 }
 
+const HOW_IT_WORKS_ICONS = ['🔗', '👤', '💸'];
+
 const ParrainageScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { token } = useAuth();
 
   const [info, setInfo] = useState<ParrainageInfo | null>(null);
-  const [shareMessage, setShareMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,13 +52,7 @@ const ParrainageScreen: React.FC = () => {
           { method: 'GET' },
           token
         );
-        const msgRes = await apiRequest<{ message: string }>(
-          '/parrainage/message',
-          { method: 'GET' },
-          token
-        );
         setInfo(infoRes);
-        setShareMessage(msgRes.message);
       } catch (e: any) {
         setError(e.message || 'Erreur lors du chargement');
       } finally {
@@ -74,8 +70,13 @@ const ParrainageScreen: React.FC = () => {
   };
 
   const handleShare = async () => {
+    if (!info?.code_parrainage) return;
+    const message =
+      `😊 Inscris-toi à l'Auto-École Ange Raphael avec mon code de parrainage : ${info.code_parrainage} 🚗\n\n` +
+      `🚘 Apprends à conduire et obtiens ton permis A & B ! 🥳\n\n` +
+      `📲 Clique sur le lien pour t'inscrire https://ange-raphael.supahuman.site/inscription/${info.code_parrainage}`;
     try {
-      await Share.share({ message: shareMessage });
+      await Share.share({ message });
     } catch (e) {
       console.log('Erreur partage:', e);
     }
@@ -110,431 +111,405 @@ const ParrainageScreen: React.FC = () => {
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="#1e3a8a" />
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
+      <SafeAreaView style={styles.container} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar barStyle="light-content" backgroundColor="#1a4fd6" />
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* ── HERO BANNER ── */}
+        <View style={styles.heroBanner}>
+          {/* decorative circles */}
+          <View style={styles.heroCircle1} />
+          <View style={styles.heroCircle2} />
 
-          {/* Solde */}
-          <View style={styles.soldeCard}>
-            <Text style={styles.soldeLabel}>Votre solde</Text>
-            <Text style={styles.soldeAmount}>{info.solde.toLocaleString('fr-FR')} FCFA</Text>
-            <Text style={styles.soldeHint}>💳 Retrait en présentiel au CFPAM</Text>
+          <View style={styles.heroGiftIcon}>
+            <Text style={styles.heroGiftEmoji}>🎁</Text>
           </View>
 
-          {/* Progression */}
-          <View style={styles.progressCard}>
-            <Text style={styles.progressTitle}>🎯 Progression vers la prime</Text>
-            <View style={styles.progressBarBackground}>
-              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-            </View>
-            <View style={styles.progressLabels}>
+          <Text style={styles.heroTitle}>Invitez vos amis,{'\n'}Gagnez des récompenses</Text>
+          <Text style={styles.heroSubtitle}>
+            Gagnez {info.prime_disponible.toLocaleString('fr-FR')} FCFA pour chaque filleul qui
+            effectue un dépôt.
+          </Text>
+
+          {/* Solde pill */}
+          <View style={styles.soldePill}>
+            <Text style={styles.soldePillLabel}>Votre solde  </Text>
+            <Text style={styles.soldePillAmount}>
+              {info.solde.toLocaleString('fr-FR')} FCFA
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.body}>
+
+          {/* ── PROGRESSION ── */}
+          <View style={styles.section}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>PROGRESSION RÉCOMPENSE</Text>
               <Text style={styles.progressCount}>
-                {info.filleuls_avec_depot} / 3 filleuls avec dépôt
+                <Text style={styles.progressHighlight}>{info.filleuls_avec_depot}/3 </Text>
+                filleuls
               </Text>
-              {!primeDebloquee && (
-                <Text style={styles.progressRemaining}>
-                  encore {info.filleuls_restants} filleul{info.filleuls_restants > 1 ? 's' : ''}
-                </Text>
-              )}
+            </View>
+
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
             </View>
 
             {primeDebloquee ? (
-              <View style={styles.primeUnlocked}>
-                <Text style={styles.primeUnlockedText}>
-                  🎉 Prime de {info.prime_disponible.toLocaleString('fr-FR')} FCFA débloquée !
-                </Text>
-                <Text style={styles.primeUnlockedSub}>
-                  Rendez-vous au CFPAM pour effectuer votre retrait.
-                </Text>
-              </View>
+              <Text style={styles.progressHint}>
+                🎉 Prime de{' '}
+                <Text style={styles.progressBold}>
+                  {info.prime_disponible.toLocaleString('fr-FR')} FCFA
+                </Text>{' '}
+                débloquée ! Rendez-vous au CFPAM.
+              </Text>
             ) : (
-              <View style={styles.primePending}>
-                <Text style={styles.primePendingText}>
-                  💰 Gagnez {info.prime_disponible.toLocaleString('fr-FR')} FCFA dès que vos 3 filleuls ont fait un dépôt
+              <Text style={styles.progressHint}>
+                Invitez encore{' '}
+                <Text style={styles.progressBold}>
+                  {info.filleuls_restants} filleul{info.filleuls_restants > 1 ? 's' : ''}
+                </Text>{' '}
+                pour débloquer la prime de{' '}
+                <Text style={styles.progressBold}>
+                  {info.prime_disponible.toLocaleString('fr-FR')} FCFA
                 </Text>
-              </View>
+              </Text>
             )}
           </View>
 
-          {/* Code de parrainage */}
-          <View style={styles.codeCard}>
-            <Text style={styles.codeLabel}>Votre code de parrainage</Text>
-            <View style={styles.codeContainer}>
-              <Text style={styles.codeText}>{info.code_parrainage}</Text>
-            </View>
-            <View style={styles.buttonRow}>
-              <TouchableOpacity style={styles.copyButton} onPress={handleCopyCode}>
-                <Text style={styles.copyButtonText}>📋 Copier</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-                <Text style={styles.shareButtonText}>📤 Partager</Text>
-              </TouchableOpacity>
+          {/* ── CODE DE PARRAINAGE ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Votre code de parrainage</Text>
+            <View style={styles.codeDashedBox}>
+              <View style={styles.codeRow}>
+                <Text style={styles.codeText}>{info.code_parrainage}</Text>
+                <TouchableOpacity style={styles.copyBtn} onPress={handleCopyCode}>
+                  <Text style={styles.copyBtnText}>📋  COPIER</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
-          {/* Comment ça marche */}
-          <View style={styles.howItWorksCard}>
-            <Text style={styles.sectionTitle}>📚 Comment ça marche ?</Text>
-            <Text style={styles.introText}>{info.explication_systeme.intro}</Text>
+          {/* ── MESSAGE DE PARTAGE ── */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Message de partage</Text>
+            <View style={styles.codeDashedBox}>
+              <Text style={styles.shareMessageText}>
+                {`😊 Inscris-toi à l'Auto-École Ange Raphael avec mon code de parrainage : ${info.code_parrainage} 🚗\n\n🚘 Apprends à conduire et obtiens ton permis A & B ! 🥳\n\n📲 Clique sur le lien pour t'inscrire https://ange-raphael.supahuman.site/inscription/${info.code_parrainage}`}
+              </Text>
+            </View>
+          </View>
+
+          {/* ── COMMENT ÇA MARCHE ── */}
+          <View style={styles.section}>
+            <Text style={styles.howTitle}>Comment ça marche</Text>
+            <Text style={styles.howIntro}>{info.explication_systeme.intro}</Text>
 
             {info.explication_systeme.regles.map((regle, i) => (
-              <View key={i} style={styles.regleCard}>
-                <View style={styles.regleRow}>
-                  <Text style={styles.regleIcon}>✅</Text>
-                  <View style={styles.regleContent}>
-                    <Text style={styles.regleCondition}>{regle.condition}</Text>
-                    <Text style={styles.regleAvantage}>→ {regle.avantage}</Text>
-                  </View>
+              <View key={i} style={styles.stepRow}>
+                <View style={styles.stepIconWrap}>
+                  <Text style={styles.stepEmoji}>{HOW_IT_WORKS_ICONS[i] ?? '✅'}</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepCondition}>{regle.condition}</Text>
+                  <Text style={styles.stepAvantage}>{regle.avantage}</Text>
                 </View>
               </View>
             ))}
-
-            
-
           </View>
 
-          {/* Boutons d'action */}
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => navigation.navigate('Filleuls')}
-            >
-              <Text style={styles.secondaryButtonText}>👥 Voir mes filleuls</Text>
-            </TouchableOpacity>
+          {/* ── CTA BUTTONS ── */}
+          <TouchableOpacity style={styles.inviteBtn} onPress={handleShare}>
+            <Text style={styles.inviteBtnText}>📤  Inviter mes amis maintenant</Text>
+          </TouchableOpacity>
 
-            
-          </View>
+          <TouchableOpacity
+            style={styles.filleulsBtn}
+            onPress={() => navigation.navigate('Filleuls')}
+          >
+            <Text style={styles.filleulsBtnText}>👥  Voir mes filleuls</Text>
+          </TouchableOpacity>
 
         </View>
       </ScrollView>
-    </>
+      </SafeAreaView>
+      </>
   );
 };
+/* ─────────────────────── STYLES ─────────────────────── */
+const BLUE = '#2563eb';
+const BLUE_DARK = '#1a4fd6';
+const BLUE_LIGHT = '#dbeafe';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f1f5f9',
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f1f5f9',
   },
-  loadingText: {
-    fontSize: 16,
-    color: '#64748b',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#ef4444',
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
-  content: {
-    padding: 16,
-  },
+  loadingText: { fontSize: 16, color: '#64748b' },
+  errorText: { fontSize: 16, color: '#ef4444', textAlign: 'center', paddingHorizontal: 24 },
 
-  /* Solde */
-  soldeCard: {
-    backgroundColor: '#1e3a8a',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 16,
+  /* ── HERO ── */
+  heroBanner: {
+    backgroundColor: BLUE,
+    paddingTop: 36,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  heroCircle1: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    top: -60,
+    right: -50,
+  },
+  heroCircle2: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -40,
+    left: -30,
+  },
+  heroGiftIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
+    marginBottom: 20,
+    alignSelf: 'flex-end',
   },
-  soldeLabel: {
-    fontSize: 14,
-    color: '#bfdbfe',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
-  soldeAmount: {
-    fontSize: 36,
+  heroGiftEmoji: { fontSize: 26 },
+  heroTitle: {
+    fontSize: 28,
     fontWeight: '800',
     color: '#ffffff',
+    lineHeight: 36,
     marginBottom: 10,
   },
-  soldeHint: {
-    fontSize: 13,
-    color: '#93c5fd',
+  heroSubtitle: {
+    fontSize: 14,
+    color: '#bfdbfe',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  soldePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  soldePillLabel: { fontSize: 13, color: '#bfdbfe', fontWeight: '500' },
+  soldePillAmount: { fontSize: 15, color: '#ffffff', fontWeight: '800' },
+
+  /* ── BODY ── */
+  body: {
+    marginTop: -16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 16,
+    paddingTop: 24,
   },
 
-  /* Progression */
-  progressCard: {
+  /* ── SECTIONS ── */
+  section: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
+    marginBottom: 14,
+    shadowColor: '#1e3a8a',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  progressTitle: {
-    fontSize: 17,
+  sectionLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#1e293b',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
     marginBottom: 14,
   },
-  progressBarBackground: {
-    height: 12,
+
+  /* ── PROGRESSION ── */
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  progressCount: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+  },
+  progressHighlight: {
+    color: BLUE,
+    fontWeight: '800',
+  },
+  progressBarBg: {
+    height: 10,
     backgroundColor: '#e2e8f0',
-    borderRadius: 6,
+    borderRadius: 5,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#3b82f6',
-    borderRadius: 6,
+    backgroundColor: BLUE,
+    borderRadius: 5,
   },
-  progressLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  progressCount: {
-    fontSize: 13,
-    color: '#475569',
-    fontWeight: '600',
-  },
-  progressRemaining: {
-    fontSize: 13,
-    color: '#94a3b8',
-  },
-  primeUnlocked: {
-    backgroundColor: '#f0fdf4',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#86efac',
-  },
-  primeUnlockedText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#15803d',
-    marginBottom: 4,
-  },
-  primeUnlockedSub: {
-    fontSize: 13,
-    color: '#166534',
-  },
-  primePending: {
-    backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#bfdbfe',
-  },
-  primePendingText: {
-    fontSize: 14,
-    color: '#1d4ed8',
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-
-  /* Code */
-  codeCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  codeLabel: {
+  progressHint: {
     fontSize: 13,
     color: '#64748b',
-    fontWeight: '600',
-    marginBottom: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    lineHeight: 20,
   },
-  codeContainer: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    padding: 16,
+  progressBold: {
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+
+  /* ── CODE ── */
+  codeDashedBox: {
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#3b82f6',
+    borderColor: '#bfdbfe',
     borderStyle: 'dashed',
-    marginBottom: 12,
+    backgroundColor: '#f8faff',
+    padding: 14,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   codeText: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#1e3a8a',
+    fontWeight: '900',
+    color: BLUE_DARK,
     letterSpacing: 3,
-    textAlign: 'center',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  copyButton: {
     flex: 1,
-    backgroundColor: '#3b82f6',
-    paddingVertical: 14,
+  },
+  copyBtn: {
+    backgroundColor: BLUE,
     borderRadius: 10,
-    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  copyButtonText: {
+  copyBtnText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  shareButton: {
-    flex: 1,
-    backgroundColor: '#10b981',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  shareButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
 
-  /* Comment ça marche */
-  howItWorksCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sectionTitle: {
-    fontSize: 19,
+  /* ── HOW IT WORKS ── */
+  howTitle: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#1e293b',
-    marginBottom: 12,
-  },
-  introText: {
-    fontSize: 15,
-    color: '#475569',
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  regleCard: {
-    backgroundColor: '#f0fdf4',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#22c55e',
-  },
-  regleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  regleIcon: {
-    fontSize: 20,
-    marginRight: 10,
-  },
-  regleContent: {
-    flex: 1,
-  },
-  regleCondition: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#15803d',
-    marginBottom: 4,
-  },
-  regleAvantage: {
-    fontSize: 14,
-    color: '#166534',
-    lineHeight: 20,
-    fontWeight: '600',
-  },
-  retraitBox: {
-    backgroundColor: '#eff6ff',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    marginTop: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
-  },
-  retraitTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1d4ed8',
-    marginBottom: 4,
-  },
-  retraitText: {
-    fontSize: 14,
-    color: '#1e40af',
-    lineHeight: 20,
-  },
-  importantBox: {
-    backgroundColor: '#fef2f2',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 4,
-    borderWidth: 1,
-    borderColor: '#fecaca',
-  },
-  importantTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#991b1b',
-    marginBottom: 10,
-  },
-  importantItem: {
-    flexDirection: 'row',
     marginBottom: 6,
   },
-  importantBullet: {
-    fontSize: 16,
-    color: '#dc2626',
-    marginRight: 8,
-    fontWeight: '700',
-  },
-  importantText: {
-    flex: 1,
+  howIntro: {
     fontSize: 13,
-    color: '#7f1d1d',
+    color: '#64748b',
     lineHeight: 20,
+    marginBottom: 18,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 18,
+  },
+  stepIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: BLUE_LIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    flexShrink: 0,
+  },
+  stepEmoji: { fontSize: 20 },
+  stepContent: { flex: 1 },
+  stepCondition: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 3,
+  },
+  stepAvantage: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 19,
   },
 
-  /* Actions */
-  actionsContainer: {
-    marginBottom: 24,
-  },
-  secondaryButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
+  /* ── CTA BUTTONS ── */
+  inviteBtn: {
+    backgroundColor: BLUE,
+    borderRadius: 14,
+    paddingVertical: 18,
     alignItems: 'center',
     marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#3b82f6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: BLUE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  secondaryButtonText: {
-    color: '#3b82f6',
+  inviteBtnText: {
+    color: '#ffffff',
     fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  filleulsBtn: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: BLUE,
+    marginBottom: 8,
+  },
+  filleulsBtnText: {
+    color: BLUE,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

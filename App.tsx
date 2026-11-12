@@ -8,8 +8,11 @@ import { ConfigProvider } from './src/context/ConfigContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { toastConfig } from './src/config/toastConfig';
 import { theme } from './src/config/theme';
+import { useOTAUpdate } from "./src/hooks/useOTAUpdate";
+
 
 export default function App() {
+  useOTAUpdate();
   return (
     <SafeAreaProvider>
       <NavigationContainer>

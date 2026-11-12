@@ -9,14 +9,8 @@ import {
   RefreshControl,
   Linking,
 } from 'react-native';
-import {
-  CheckCircle,
-  XCircle,
-  Award,
-  AlertCircle,
-  Wallet,
-  MessageCircle,
-} from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CheckCircle, XCircle, Award, AlertCircle, Wallet, MessageCircle } from 'lucide-react-native';
 import { theme } from '../../config/theme';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../config/api';
@@ -48,87 +42,46 @@ export default function PayerFraisScreen() {
 
   const loadFraisStatus = async () => {
     try {
-      const response = await apiRequest<{
-        success: boolean;
-        frais: FraisStatus;
-        solde: number;
-      }>('/frais/status', { method: 'GET' }, token);
-
-      if (response.success) {
-        setFraisStatus(response.frais);
-      }
+      const response = await apiRequest<{ success: boolean; frais: FraisStatus; solde: number }>(
+        '/frais/status', { method: 'GET' }, token
+      );
+      if (response.success) setFraisStatus(response.frais);
     } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erreur',
-        text2: error.message || 'Impossible de charger les frais',
-      });
+      Toast.show({ type: 'error', text1: 'Erreur', text2: error.message || 'Impossible de charger les frais' });
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    loadFraisStatus();
-  };
+  const handleRefresh = () => { setIsRefreshing(true); loadFraisStatus(); };
 
   const handlePayerFrais = async (typeFrais: FraisType) => {
     if (!user) return;
-
     const frais = fraisStatus?.[typeFrais];
     if (!frais) return;
-
     if (frais.status === 'paye' || frais.status === 'dispense') {
-      Toast.show({
-        type: 'info',
-        text1: 'Information',
-        text2: 'Ces frais sont deja payes ou dispenses',
-      });
+      Toast.show({ type: 'info', text1: 'Information', text2: 'Ces frais sont deja payes ou dispenses' });
       return;
     }
-
     if (user.solde < frais.montant) {
-      Toast.show({
-        type: 'error',
-        text1: 'Solde insuffisant',
-        text2: `Il vous manque ${formatCurrency(frais.montant - user.solde)}`,
-      });
+      Toast.show({ type: 'error', text1: 'Solde insuffisant', text2: `Il vous manque ${formatCurrency(frais.montant - user.solde)}` });
       return;
     }
-
     setIsPaying(typeFrais);
     try {
-      const response = await apiRequest<{
-        success: boolean;
-        message: string;
-        nouveau_solde: number;
-        frais_payes: string;
-      }>(
+      const response = await apiRequest<{ success: boolean; message: string; nouveau_solde: number; frais_payes: string }>(
         '/frais/payer',
-        {
-          method: 'POST',
-          body: JSON.stringify({ type_frais: typeFrais }),
-        },
+        { method: 'POST', body: JSON.stringify({ type_frais: typeFrais }) },
         token
       );
-
       if (response.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Paiement reussi',
-          text2: `Nouveau solde: ${formatCurrency(response.nouveau_solde)}`,
-        });
+        Toast.show({ type: 'success', text1: 'Paiement reussi', text2: `Nouveau solde: ${formatCurrency(response.nouveau_solde)}` });
         await refreshUser();
         await loadFraisStatus();
       }
     } catch (error: any) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erreur',
-        text2: error.message || 'Impossible d\'effectuer le paiement',
-      });
+      Toast.show({ type: 'error', text1: 'Erreur', text2: error.message || 'Impossible d\'effectuer le paiement' });
     } finally {
       setIsPaying(null);
     }
@@ -136,59 +89,36 @@ export default function PayerFraisScreen() {
 
   const handleRevendiquer = () => {
     const phoneNumber = '659292001';
-    const message = encodeURIComponent(
-      'Bonjour , je voudrais retirer l\'argent que j\'ai dans mon solde de l\'application Ange Raphael'
-    );
+    const message = encodeURIComponent('Bonjour , je voudrais retirer l\'argent que j\'ai dans mon solde de l\'application Ange Raphael');
     const whatsappUrl = `whatsapp://send?phone=237${phoneNumber}&text=${message}`;
     const fallbackUrl = `https://wa.me/237${phoneNumber}?text=${message}`;
-
     Linking.canOpenURL(whatsappUrl)
-      .then((supported) => {
-        if (supported) {
-          return Linking.openURL(whatsappUrl);
-        } else {
-          return Linking.openURL(fallbackUrl);
-        }
-      })
-      .catch(() => {
-        Toast.show({
-          type: 'error',
-          text1: 'Erreur',
-          text2: 'Impossible d\'ouvrir WhatsApp',
-        });
-      });
+      .then((supported) => Linking.openURL(supported ? whatsappUrl : fallbackUrl))
+      .catch(() => Toast.show({ type: 'error', text1: 'Erreur', text2: 'Impossible d\'ouvrir WhatsApp' }));
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'paye':
-        return <CheckCircle size={24} color={theme.colors.success} />;
-      case 'dispense':
-        return <Award size={24} color={theme.colors.niveau['3']} />;
-      case 'non_paye':
-        return <XCircle size={24} color={theme.colors.error} />;
-      default:
-        return <AlertCircle size={24} color={theme.colors.textSecondary} />;
+      case 'paye': return <CheckCircle size={22} color="#22C55E" />;
+      case 'dispense': return <Award size={22} color={theme.colors.niveau['3']} />;
+      case 'non_paye': return <XCircle size={22} color="#EF4444" />;
+      default: return <AlertCircle size={22} color="#94A3B8" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'paye':
-        return theme.colors.success;
-      case 'dispense':
-        return theme.colors.niveau['3'];
-      case 'non_paye':
-        return theme.colors.error;
-      default:
-        return theme.colors.textSecondary;
+      case 'paye': return '#22C55E';
+      case 'dispense': return theme.colors.niveau['3'];
+      case 'non_paye': return '#EF4444';
+      default: return '#94A3B8';
     }
   };
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color="#2563EB" />
         <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
@@ -197,244 +127,223 @@ export default function PayerFraisScreen() {
   const formationData = fraisStatus?.formation;
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>Mon portefeuille</Text>
-        <Text style={styles.subtitle}>
-          Gérez vos frais et votre solde
-        </Text>
-      </View>
-
-      {user && (
-        <View style={styles.balanceCard}>
-          <Wallet size={24} color={theme.colors.textInverse} />
-          <View style={styles.balanceContent}>
-            <Text style={styles.balanceLabel}>Solde disponible</Text>
-            <Text style={styles.balanceAmount}>{formatCurrency(user.solde)}</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'payer' && styles.tabActive]}
-          onPress={() => setActiveTab('payer')}
-        >
-          <Wallet
-            size={18}
-            color={activeTab === 'payer' ? theme.colors.textInverse : theme.colors.textSecondary}
-          />
-          <Text style={[styles.tabText, activeTab === 'payer' && styles.tabTextActive]}>
-            Payer mes frais
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'revendiquer' && styles.tabActiveGreen]}
-          onPress={() => setActiveTab('revendiquer')}
-        >
-          <MessageCircle
-            size={18}
-            color={activeTab === 'revendiquer' ? theme.colors.textInverse : theme.colors.textSecondary}
-          />
-          <Text style={[styles.tabText, activeTab === 'revendiquer' && styles.tabTextActive]}>
-            Revendiquer mon argent
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab: Payer mes frais */}
-      {activeTab === 'payer' && (
-        <>
-          <View style={styles.infoHighlight}>
-            <Text style={styles.infoHighlightTitle}>💡 Un seul paiement requis</Text>
-            <Text style={styles.infoHighlightText}>
-              Un paiement unique de{' '}
-              <Text style={styles.infoHighlightAmount}>
-                {formatCurrency(formationData?.montant ?? 10000)}
-              </Text>{' '}
-              suffit pour débloquer l'intégralité de vos cours — aussi bien les cours
-              théoriques que les cours pratiques.
-            </Text>
-          </View>
-
-          {formationData && (
-            <View style={styles.fraisContainer}>
-              <View style={styles.fraisCard}>
-                <View style={styles.fraisHeader}>
-                  <View style={styles.fraisIcon}>
-                    {getStatusIcon(formationData.status)}
-                  </View>
-                  <View style={styles.fraisInfo}>
-                    <Text style={styles.fraisLabel}>{formationData.label}</Text>
-                    <Text style={styles.fraisMontant}>
-                      {formatCurrency(formationData.montant)}
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={[
-                    styles.statusBadge,
-                    { backgroundColor: getStatusColor(formationData.status) + '20' },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      { color: getStatusColor(formationData.status) },
-                    ]}
-                  >
-                    {getFraisStatusLabel(formationData.status)}
-                  </Text>
-                </View>
-
-                {formationData.description && (
-                  <Text style={styles.fraisDescription}>
-                    {formationData.description}
-                  </Text>
-                )}
-
-                {formationData.status === 'paye' || formationData.status === 'dispense' ? (
-                  <View style={styles.unlockedBanner}>
-                    <CheckCircle size={18} color={theme.colors.success} />
-                    <Text style={styles.unlockedText}>
-                      Vos cours théoriques et pratiques sont débloqués 🎉
-                    </Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.payButton,
-                      isPaying === 'formation' && styles.payButtonDisabled,
-                    ]}
-                    onPress={() => handlePayerFrais('formation')}
-                    disabled={isPaying !== null}
-                  >
-                    {isPaying === 'formation' ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={theme.colors.textInverse}
-                      />
-                    ) : (
-                      <Text style={styles.payButtonText}>
-                        Payer {formatCurrency(formationData.montant)} et débloquer mes cours
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
+    <SafeAreaView style={styles.wrapper} edges={['top', 'left', 'right', 'bottom']}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#2563EB" />}
+      >
+        {/* Balance Card */}
+        {user && (
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>SOLDE ACTUEL</Text>
+            <View style={styles.balanceRow}>
+              <Text style={styles.balanceAmount}>{formatCurrency(user.solde)}</Text>
+              <View style={styles.balanceIconContainer}>
+                <Wallet size={20} color="#2563EB" />
               </View>
             </View>
-          )}
-        </>
-      )}
+          </View>
+        )}
 
-      {/* Tab: Revendiquer mon argent */}
-      {activeTab === 'revendiquer' && (
-        <View style={styles.revendiquerContainer}>
-          <View style={styles.revendiquerCard}>
-            <View style={styles.whatsappIconContainer}>
-              <MessageCircle size={40} color="#25D366" />
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'payer' && styles.tabActive]}
+            onPress={() => setActiveTab('payer')}
+            activeOpacity={0.8}
+          >
+            <Wallet size={16} color={activeTab === 'payer' ? '#FFFFFF' : '#64748B'} />
+            <Text style={[styles.tabText, activeTab === 'payer' && styles.tabTextActive]}>
+              Payer mes frais
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'revendiquer' && styles.tabActiveGreen]}
+            onPress={() => setActiveTab('revendiquer')}
+            activeOpacity={0.8}
+          >
+            <MessageCircle size={16} color={activeTab === 'revendiquer' ? '#FFFFFF' : '#64748B'} />
+            <Text style={[styles.tabText, activeTab === 'revendiquer' && styles.tabTextActive]}>
+              Revendiquer
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* TAB: Payer mes frais */}
+        {activeTab === 'payer' && (
+          <>
+            {/* Info highlight */}
+            <View style={styles.section}>
+              <View style={styles.infoBanner}>
+                <Text style={styles.infoBannerTitle}>💡 Un seul paiement requis</Text>
+                <Text style={styles.infoBannerText}>
+                  Un paiement unique de{' '}
+                  <Text style={styles.infoBannerAmount}>{formatCurrency(formationData?.montant ?? 10000)}</Text>
+                  {' '}suffit pour débloquer l'intégralité de vos cours théoriques et pratiques.
+                </Text>
+              </View>
             </View>
 
-            <Text style={styles.revendiquerTitle}>Retirer votre solde</Text>
-            <Text style={styles.revendiquerDescription}>
-              Vous souhaitez récupérer l'argent présent sur votre solde ? Contactez
-              notre équipe directement via WhatsApp. Un message pré-rempli sera
-              envoyé automatiquement.
-            </Text>
+            {/* Frais card */}
+            {formationData && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>FRAIS DE FORMATION</Text>
+                <View style={styles.fraisCard}>
+                  {/* Header */}
+                  <View style={styles.fraisCardHeader}>
+                    <View style={styles.fraisIconBox}>
+                      {getStatusIcon(formationData.status)}
+                    </View>
+                    <View style={styles.fraisCardInfo}>
+                      <Text style={styles.fraisCardLabel}>{formationData.label}</Text>
+                      <Text style={styles.fraisCardMontant}>{formatCurrency(formationData.montant)}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(formationData.status) + '20' }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(formationData.status) }]}>
+                        {getFraisStatusLabel(formationData.status)}
+                      </Text>
+                    </View>
+                  </View>
 
-            {user && (
-              <View style={styles.soldeRecap}>
-                <Text style={styles.soldeRecapLabel}>Votre solde actuel</Text>
-                <Text style={styles.soldeRecapAmount}>{formatCurrency(user.solde)}</Text>
+                  {/* Description */}
+                  {formationData.description && (
+                    <Text style={styles.fraisDescription}>{formationData.description}</Text>
+                  )}
+
+                  {/* Unlocked banner or Pay button */}
+                  {(formationData.status === 'paye' || formationData.status === 'dispense') ? (
+                    <View style={styles.unlockedBanner}>
+                      <CheckCircle size={16} color="#22C55E" />
+                      <Text style={styles.unlockedText}>
+                        Vos cours théoriques et pratiques sont débloqués 🎉
+                      </Text>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.payButton, isPaying === 'formation' && styles.payButtonDisabled]}
+                      onPress={() => handlePayerFrais('formation')}
+                      disabled={isPaying !== null}
+                      activeOpacity={0.85}
+                    >
+                      {isPaying === 'formation' ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.payButtonText}>
+                          Payer {formatCurrency(formationData.montant)} et débloquer mes cours
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )}
+          </>
+        )}
 
-            <TouchableOpacity
-              style={styles.whatsappButton}
-              onPress={handleRevendiquer}
-            >
-              <MessageCircle size={20} color="#fff" />
-              <Text style={styles.whatsappButtonText}>
-                Contacter via WhatsApp
+        {/* TAB: Revendiquer */}
+        {activeTab === 'revendiquer' && (
+          <View style={styles.section}>
+            <View style={styles.revendiquerCard}>
+              <View style={styles.whatsappIconBox}>
+                <MessageCircle size={36} color="#25D366" />
+              </View>
+
+              <Text style={styles.revendiquerTitle}>Retirer votre solde</Text>
+              <Text style={styles.revendiquerDescription}>
+                Vous souhaitez récupérer l'argent présent sur votre solde ? Contactez notre équipe via WhatsApp. Un message pré-rempli sera envoyé automatiquement.
               </Text>
-            </TouchableOpacity>
 
-            <Text style={styles.revendiquerNote}>
-              📞 Numéro : +237 659 292 001
-            </Text>
+              {user && (
+                <View style={styles.soldeRecap}>
+                  <Text style={styles.soldeRecapLabel}>SOLDE ACTUEL</Text>
+                  <Text style={styles.soldeRecapAmount}>{formatCurrency(user.solde)}</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.whatsappButton}
+                onPress={handleRevendiquer}
+                activeOpacity={0.85}
+              >
+                <MessageCircle size={18} color="#FFFFFF" />
+                <Text style={styles.whatsappButtonText}>Contacter via WhatsApp</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.revendiquerNote}>📞 Numéro : +237 659 292 001</Text>
+            </View>
           </View>
-        </View>
-      )}
-    </ScrollView>
+        )}
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+  },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F1F5F9',
+    gap: 12,
   },
   loadingText: {
-    ...theme.typography.body,
-    color: theme.colors.textSecondary,
-    marginTop: theme.spacing.md,
+    fontSize: 14,
+    color: '#64748B',
   },
-  header: {
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.surface,
-  },
-  title: {
-    ...theme.typography.h2,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
-  },
+
+  // Balance Card
   balanceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    margin: theme.spacing.lg,
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.borderRadius.lg,
-    gap: theme.spacing.md,
-  },
-  balanceContent: {
-    flex: 1,
+    margin: 16,
+    marginBottom: 8,
+    backgroundColor: '#DBEAFE',
+    borderRadius: 16,
+    padding: 20,
   },
   balanceLabel: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textInverse,
-    marginBottom: theme.spacing.xs,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   balanceAmount: {
-    ...theme.typography.h2,
-    color: theme.colors.textInverse,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#1E3A8A',
+    letterSpacing: 0.5,
   },
+  balanceIconContainer: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: '#BFDBFE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   // Tabs
-  tabContainer: {
+  tabsContainer: {
     flexDirection: 'row',
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: theme.borderRadius.lg,
+    marginHorizontal: 16,
+    marginTop: 12,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 12,
     padding: 4,
     gap: 4,
   },
@@ -443,206 +352,227 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.xs,
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.xs,
-    borderRadius: theme.borderRadius.md,
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 9,
   },
   tabActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#2563EB',
   },
   tabActiveGreen: {
     backgroundColor: '#25D366',
   },
   tabText: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
     fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
   },
   tabTextActive: {
-    color: theme.colors.textInverse,
+    color: '#FFFFFF',
   },
-  // Frais de formation
-  infoHighlight: {
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.primary + '12',
-    borderRadius: theme.borderRadius.md,
-    borderLeftWidth: 4,
-    borderLeftColor: theme.colors.primary,
+
+  // Sections
+  section: {
+    marginHorizontal: 16,
+    marginTop: 16,
   },
-  infoHighlightTitle: {
-    ...theme.typography.body,
+  sectionTitle: {
+    fontSize: 11,
     fontWeight: '700',
-    color: theme.colors.primary,
-    marginBottom: theme.spacing.xs,
+    color: '#64748B',
+    letterSpacing: 1.1,
+    marginBottom: 12,
   },
-  infoHighlightText: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textPrimary,
-    lineHeight: 20,
+
+  // Info banner
+  infoBanner: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#2563EB',
   },
-  infoHighlightAmount: {
+  infoBannerTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    color: theme.colors.primary,
+    color: '#2563EB',
+    marginBottom: 6,
   },
-  fraisContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+  infoBannerText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 19,
   },
+  infoBannerAmount: {
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+
+  // Frais card
   fraisCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
-    ...theme.shadows.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    gap: 12,
   },
-  fraisHeader: {
+  fraisCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.md,
+    gap: 12,
   },
-  fraisIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceVariant,
+  fraisIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  fraisInfo: {
+  fraisCardInfo: {
     flex: 1,
   },
-  fraisLabel: {
-    ...theme.typography.body,
+  fraisCardLabel: {
+    fontSize: 14,
     fontWeight: '600',
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.xs,
+    color: '#1E293B',
+    marginBottom: 3,
   },
-  fraisMontant: {
-    ...theme.typography.h4,
-    color: theme.colors.primary,
-    fontWeight: '700',
+  fraisCardMontant: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#2563EB',
   },
   statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
   statusText: {
-    ...theme.typography.bodySmall,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   fraisDescription: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
+    fontSize: 12,
+    color: '#64748B',
     fontStyle: 'italic',
+    lineHeight: 17,
   },
   unlockedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.success + '15',
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-    marginTop: theme.spacing.sm,
+    gap: 8,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
   },
   unlockedText: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.success,
-    fontWeight: '600',
     flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#16A34A',
   },
   payButton: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: theme.spacing.sm,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   payButtonDisabled: {
     opacity: 0.5,
   },
   payButtonText: {
-    ...theme.typography.button,
-    color: theme.colors.textInverse,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
-  // Revendiquer
-  revendiquerContainer: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-  },
+
+  // Revendiquer card
   revendiquerCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.borderRadius.lg,
-    padding: theme.spacing.xl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    padding: 24,
     alignItems: 'center',
-    gap: theme.spacing.md,
-    ...theme.shadows.md,
+    gap: 14,
   },
-  whatsappIconContainer: {
+  whatsappIconBox: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#25D36615',
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing.xs,
   },
   revendiquerTitle: {
-    ...theme.typography.h3,
-    color: theme.colors.textPrimary,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1E293B',
     textAlign: 'center',
   },
   revendiquerDescription: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
+    fontSize: 13,
+    color: '#64748B',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
   },
   soldeRecap: {
     width: '100%',
-    backgroundColor: theme.colors.surfaceVariant,
-    borderRadius: theme.borderRadius.md,
-    padding: theme.spacing.md,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 14,
     alignItems: 'center',
-    marginVertical: theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   soldeRecapLabel: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 4,
   },
   soldeRecapAmount: {
-    ...theme.typography.h3,
-    color: theme.colors.textPrimary,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1E3A8A',
   },
   whatsappButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
+    gap: 8,
     backgroundColor: '#25D366',
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.xl,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: 14,
+    paddingVertical: 15,
     width: '100%',
-    marginTop: theme.spacing.xs,
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   whatsappButtonText: {
-    ...theme.typography.button,
-    color: '#fff',
+    fontSize: 15,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
   revendiquerNote: {
-    ...theme.typography.bodySmall,
-    color: theme.colors.textSecondary,
+    fontSize: 12,
+    color: '#94A3B8',
     textAlign: 'center',
-    marginTop: theme.spacing.xs,
   },
 });

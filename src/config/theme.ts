@@ -4,8 +4,8 @@
 export const theme = {
   colors: {
     // Couleurs principales
-    primary: '#1E3A8A', // Bleu foncé professionnel
-    primaryLight: '#3B82F6', // Bleu clair
+    primary: '#2563EB', // Bleu foncé professionnel
+    primaryLight: '#2563EB', // Bleu clair
     primaryDark: '#1E40AF', // Bleu très foncé
     
     // Couleurs secondaires
