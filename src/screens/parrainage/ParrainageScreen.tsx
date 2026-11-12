@@ -36,6 +36,11 @@ interface ParrainageInfo {
 
 const HOW_IT_WORKS_ICONS = ['🔗', '👤', '💸'];
 
+const buildReferralMessage = (code: string) =>
+  `😊 Inscris-toi à l’Auto-École Ange Raphaël avec mon code de parrainage : ${code} 🚗\n\n` +
+  `🚘 Apprends à conduire et obtiens ton permis A ou B ! 🥳\n\n` +
+  `📲 Inscris-toi ici : https://ange-raphael.tfs237.com/ref/${code}`;
+
 const ParrainageScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { token } = useAuth();
@@ -71,10 +76,7 @@ const ParrainageScreen: React.FC = () => {
 
   const handleShare = async () => {
     if (!info?.code_parrainage) return;
-    const message =
-      `😊 Inscris-toi à l'Auto-École Ange Raphael avec mon code de parrainage : ${info.code_parrainage} 🚗\n\n` +
-      `🚘 Apprends à conduire et obtiens ton permis A & B ! 🥳\n\n` +
-      `📲 Clique sur le lien pour t'inscrire https://ange-raphael.supahuman.site/inscription/${info.code_parrainage}`;
+    const message = buildReferralMessage(info.code_parrainage);
     try {
       await Share.share({ message });
     } catch (e) {
@@ -199,7 +201,7 @@ const ParrainageScreen: React.FC = () => {
             <Text style={styles.sectionLabel}>Message de partage</Text>
             <View style={styles.codeDashedBox}>
               <Text style={styles.shareMessageText}>
-                {`😊 Inscris-toi à l'Auto-École Ange Raphael avec mon code de parrainage : ${info.code_parrainage} 🚗\n\n🚘 Apprends à conduire et obtiens ton permis A & B ! 🥳\n\n📲 Clique sur le lien pour t'inscrire https://ange-raphael.supahuman.site/inscription/${info.code_parrainage}`}
+                {buildReferralMessage(info.code_parrainage)}
               </Text>
             </View>
           </View>

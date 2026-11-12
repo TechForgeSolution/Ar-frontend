@@ -16,7 +16,6 @@ import { theme } from '../../config/theme';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../config/api';
 import { formatCurrency} from '../../utils/formatters';
-import { validateAmount } from '../../utils/validators';
 import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -24,28 +23,19 @@ import { MainStackParamList } from '../../types';
 
 type PaymentMethod = 'mobile' | 'code_caisse';
 type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
-
-const QUICK_AMOUNTS = [2000, 5000, 10000, 25000];
+const RECHARGE_AMOUNT = 10000;
 
 export default function PaiementScreen() {
   const { token, refreshUser, user } = useAuth();
   const navigation = useNavigation<NavigationProp>();
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('mobile');
-  const [montant, setMontant] = useState('');
   const [numeroPayeur, setNumeroPayeur] = useState('');
   const [codeCaisse, setCodeCaisse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showWebView, setShowWebView] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState('');
-  const [selectedQuickAmount, setSelectedQuickAmount] = useState<number | null>(5000);
 
   const handleDepotMobile = async () => {
-    const amount = parseInt(montant);
-    const validation = validateAmount(amount);
-    if (!validation.valid) {
-      Toast.show({ type: 'error', text1: 'Montant invalide', text2: validation.message });
-      return;
-    }
     if (!numeroPayeur || numeroPayeur.length !== 9) {
       Toast.show({ type: 'error', text1: 'Numero invalide', text2: 'Veuillez entrer un numero valide' });
       return;
@@ -54,7 +44,7 @@ export default function PaiementScreen() {
     try {
       const response = await apiRequest<{ success: boolean; message: string; nouveau_solde?: number; url?: string; }>(
         '/depot/mobile',
-        { method: 'POST', body: JSON.stringify({ montant: amount, numero_payeur: numeroPayeur }) },
+        { method: 'POST', body: JSON.stringify({ montant: RECHARGE_AMOUNT, numero_payeur: numeroPayeur }) },
         token
       );
       if (response.success) {
@@ -64,7 +54,6 @@ export default function PaiementScreen() {
         } else {
           Toast.show({ type: 'success', text1: 'Depot reussi' });
           await refreshUser();
-          setMontant('');
           setNumeroPayeur('');
         }
       }
@@ -114,11 +103,6 @@ export default function PaiementScreen() {
     navigation.navigate('Dashboard');
   };
 
-  const handleQuickAmount = (amount: number) => {
-    setSelectedQuickAmount(amount);
-    setMontant(amount.toString());
-  };
-
   return (
     <>
       <SafeAreaView style={styles.wrapper} edges={["top", "left", "right", "bottom"]}>
@@ -134,47 +118,17 @@ export default function PaiementScreen() {
             </View>
           </View>
 
-          {/* Recharge Details */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>DÉTAILS DE LA RECHARGE</Text>
+          {selectedMethod === 'mobile' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>DÉTAILS DE LA RECHARGE</Text>
 
-            <Text style={styles.inputLabel}>Montant à recharger (FCFA)</Text>
-            <View style={styles.amountInputContainer}>
-              <TextInput
-                style={styles.amountInput}
-                placeholder="Ex: 5 000"
-                placeholderTextColor="#B0BFCE"
-                keyboardType="numeric"
-                value={montant}
-                onChangeText={(v) => { setMontant(v); setSelectedQuickAmount(null); }}
-                editable={!isLoading}
-              />
-              <Text style={styles.currencyLabel}>FCFA</Text>
+              <Text style={styles.inputLabel}>Montant fixe de recharge</Text>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.amountInput}>10 000</Text>
+                <Text style={styles.currencyLabel}>FCFA</Text>
+              </View>
             </View>
-
-            {/* Quick amount buttons */}
-            <View style={styles.quickAmounts}>
-              {QUICK_AMOUNTS.map((amount) => (
-                <TouchableOpacity
-                  key={amount}
-                  style={[
-                    styles.quickAmountBtn,
-                    selectedQuickAmount === amount && styles.quickAmountBtnActive,
-                  ]}
-                  onPress={() => handleQuickAmount(amount)}
-                >
-                  <Text
-                    style={[
-                      styles.quickAmountText,
-                      selectedQuickAmount === amount && styles.quickAmountTextActive,
-                    ]}
-                  >
-                    + {amount >= 1000 ? `${amount / 1000} 000` : amount}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          )}
 
           {/* Payment Method */}
           <View style={styles.section}>
@@ -390,33 +344,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#94A3B8',
-  },
-
-  // Quick amounts
-  quickAmounts: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  quickAmountBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  quickAmountBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
-  },
-  quickAmountText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  quickAmountTextActive: {
-    color: '#2563EB',
   },
 
   // Method Cards
