@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
+  Image,
   View,
   Text,
   StyleSheet,
@@ -7,10 +8,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   Linking,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
+import * as SecureStore from 'expo-secure-store';
+import Toast from 'react-native-toast-message';
 import { MainStackParamList, Dashboard } from '../../types';
 import { theme } from '../../config/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -26,14 +31,156 @@ type Props = { navigation: NativeStackNavigationProp<MainStackParamList, 'Dashbo
 
 const WHATSAPP_NUMBER = '237659292001'; // Cameroun (+237) + numéro
 
+interface Advertisement {
+  id: number;
+  image_url: string;
+  redirect_url: string;
+  expires_at: number;
+}
+
+const isAdvertisement = (value: unknown): value is Advertisement => {
+  if (!value || typeof value !== 'object') return false;
+  return 'id' in value
+    && Number.isInteger(value.id)
+    && 'image_url' in value
+    && typeof value.image_url === 'string'
+    && 'redirect_url' in value
+    && typeof value.redirect_url === 'string'
+    && 'expires_at' in value
+    && typeof value.expires_at === 'number';
+};
+
 const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { user, token } = useAuth();
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [advertisement, setAdvertisement] = useState<Advertisement | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [countdown, setCountdown] = useState({ jours: 0, heures: 0, minutes: 0, secondes: 0 });
 
   useEffect(() => { fetchDashboard(); }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id || !token) return undefined;
+
+      let isCurrent = true;
+      const storageKey = `publicite_vue_${user.id}`;
+
+      const loadAdvertisement = async () => {
+        let cachedAdvertisement: Advertisement | null = null;
+
+        try {
+          const cachedValue = await SecureStore.getItemAsync(storageKey);
+          if (cachedValue) {
+            const parsedValue: unknown = JSON.parse(cachedValue);
+            if (isAdvertisement(parsedValue) && parsedValue.expires_at > Date.now()) {
+              cachedAdvertisement = parsedValue;
+              if (isCurrent) setAdvertisement(parsedValue);
+            } else {
+              await SecureStore.deleteItemAsync(storageKey);
+            }
+          }
+        } catch (error) {
+          console.error('Erreur lors de la lecture de la publicité enregistrée:', error);
+        }
+
+        try {
+          const response = await apiRequest<{
+            success: boolean;
+            publicite: Advertisement | null;
+          }>('/publicite', { method: 'GET' }, token);
+
+          if (response.publicite && isAdvertisement(response.publicite)
+            && response.publicite.expires_at > Date.now()) {
+            try {
+              await SecureStore.setItemAsync(storageKey, JSON.stringify(response.publicite));
+            } catch (error) {
+              console.error('Erreur lors de l’enregistrement de la publicité:', error);
+            }
+            if (isCurrent) setAdvertisement(response.publicite);
+          } else if (!cachedAdvertisement && isCurrent) {
+            setAdvertisement(null);
+          }
+        } catch (error) {
+          console.error('Erreur lors du chargement de la publicité:', error);
+          if (!cachedAdvertisement && isCurrent) setAdvertisement(null);
+        }
+      };
+
+      void loadAdvertisement();
+      return () => {
+        isCurrent = false;
+      };
+    }, [token, user?.id])
+  );
+
+  useEffect(() => {
+    if (!advertisement || !user?.id) return undefined;
+
+    const storageKey = `publicite_vue_${user.id}`;
+    const hideAdvertisement = () => {
+      setAdvertisement(current => current?.id === advertisement.id ? null : current);
+      SecureStore.deleteItemAsync(storageKey).catch(error => {
+        console.error('Erreur lors de la suppression de la publicité expirée:', error);
+      });
+    };
+    const remainingTime = advertisement.expires_at - Date.now();
+
+    if (remainingTime <= 0) {
+      hideAdvertisement();
+      return undefined;
+    }
+
+    const timeout = setTimeout(hideAdvertisement, remainingTime);
+    const appStateSubscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && advertisement.expires_at <= Date.now()) {
+        hideAdvertisement();
+      }
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      appStateSubscription.remove();
+    };
+  }, [advertisement, user?.id]);
+
+  const dismissAdvertisement = async () => {
+    if (!advertisement || !user?.id || !token) return;
+
+    const dismissedAdvertisement = advertisement;
+    setAdvertisement(null);
+    try {
+      await SecureStore.deleteItemAsync(`publicite_vue_${user.id}`);
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la publicité:', error);
+    }
+
+    try {
+      await apiRequest(`/publicite/${dismissedAdvertisement.id}/pris-note`, { method: 'POST' }, token);
+    } catch (error) {
+      console.error('Erreur lors de la confirmation de lecture de la publicité:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Publicité masquée',
+        text2: 'La confirmation de lecture n’a pas pu être envoyée.',
+      });
+    }
+  };
+
+  const openAdvertisement = async () => {
+    if (!advertisement) return;
+    try {
+      await Linking.openURL(advertisement.redirect_url);
+    } catch (error) {
+      console.error('Erreur lors de l’ouverture du lien publicitaire:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Lien indisponible',
+        text2: 'Impossible d’ouvrir cette publicité.',
+      });
+    }
+  };
 
   useEffect(() => {
     if (dashboard?.compte_a_rebours?.timestamp_cible) {
@@ -116,6 +263,34 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           />
         }
       >
+        {advertisement && (
+          <View style={styles.advertisementCard}>
+            <View style={styles.advertisementHeader}>
+              <Text style={styles.advertisementLabel}>PUBLICITÉ</Text>
+            </View>
+            <TouchableOpacity
+              onPress={openAdvertisement}
+              activeOpacity={0.9}
+              accessibilityRole="link"
+              accessibilityLabel="Ouvrir le lien de la publicité"
+            >
+              <Image
+                source={{ uri: advertisement.image_url }}
+                style={styles.advertisementImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.advertisementButton}
+              onPress={dismissAdvertisement}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <Text style={styles.advertisementButtonText}>J’ai pris note</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* ── Header ─────────────────────────────────────────── */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -275,6 +450,47 @@ const WhatsAppIcon: React.FC<{ size?: number }> = ({ size = 32 }) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
+
+  advertisementCard: {
+    marginHorizontal: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  advertisementHeader: {
+    paddingHorizontal: theme.spacing.xs,
+    paddingBottom: theme.spacing.xs,
+  },
+  advertisementLabel: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  advertisementImage: {
+    width: '100%',
+    height: 170,
+    borderRadius: 10,
+    backgroundColor: theme.colors.border,
+  },
+  advertisementButton: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+    borderRadius: 8,
+    backgroundColor: theme.colors.primary,
+  },
+  advertisementButtonText: {
+    ...theme.typography.bodySmall,
+    color: '#fff',
+    fontWeight: '700',
+  },
 
   // Header
   header: {
