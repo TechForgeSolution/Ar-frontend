@@ -11,6 +11,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (telephone: string, password: string) => Promise<boolean>;
   register: (data: RegisterData) => Promise<boolean>;
+  requestPhoneOtp: (telephone: string, purpose: PhoneOtpPurpose) => Promise<boolean>;
+  verifyPhoneOtp: (telephone: string, code: string, purpose: PhoneOtpPurpose) => Promise<string | null>;
+  resetPassword: (telephone: string, verificationToken: string, password: string, passwordConfirmation: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (user: User) => void;
@@ -31,7 +34,10 @@ interface RegisterData {
   centre_examen_id?: number;
   code_parrainage?: string;
   lieux_pratique?: number[];
+  otp_token: string;
 }
+
+type PhoneOtpPurpose = 'inscription' | 'recuperation';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -141,6 +147,85 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const requestPhoneOtp = async (telephone: string, purpose: PhoneOtpPurpose): Promise<boolean> => {
+    try {
+      const response = await apiRequest<{ success: boolean; message: string }>('/otp/telephone/envoyer', {
+        method: 'POST',
+        body: JSON.stringify({ telephone, purpose }),
+      });
+      Toast.show({ type: 'success', text1: 'Code WhatsApp envoyé', text2: response.message });
+      return response.success;
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Envoi du code impossible',
+        text2: error.message || 'Réessayez plus tard.',
+      });
+      return false;
+    }
+  };
+
+  const verifyPhoneOtp = async (
+    telephone: string,
+    code: string,
+    purpose: PhoneOtpPurpose
+  ): Promise<string | null> => {
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        message?: string;
+        verification_token?: string;
+      }>('/otp/telephone/verifier', {
+        method: 'POST',
+        body: JSON.stringify({ telephone, code, purpose }),
+      });
+
+      if (!response.success || !response.verification_token) {
+        Toast.show({ type: 'error', text1: 'Code invalide', text2: response.message });
+        return null;
+      }
+
+      Toast.show({ type: 'success', text1: 'Numéro WhatsApp vérifié' });
+      return response.verification_token;
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Vérification impossible',
+        text2: error.message || 'Code incorrect ou expiré.',
+      });
+      return null;
+    }
+  };
+
+  const resetPassword = async (
+    telephone: string,
+    verificationToken: string,
+    password: string,
+    passwordConfirmation: string
+  ): Promise<boolean> => {
+    try {
+      const response = await apiRequest<{ success: boolean; message: string }>('/mot-de-passe/reinitialiser', {
+        method: 'POST',
+        body: JSON.stringify({
+          telephone,
+          verification_token: verificationToken,
+          password,
+          password_confirmation: passwordConfirmation,
+        }),
+      });
+
+      Toast.show({ type: 'success', text1: 'Mot de passe modifié', text2: response.message });
+      return response.success;
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Réinitialisation impossible',
+        text2: error.message || 'Réessayez la procédure.',
+      });
+      return false;
+    }
+  };
+
   const logout = async () => {
     try {
       if (token) {
@@ -179,6 +264,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isAuthenticated: !!user && !!token,
         login,
         register,
+        requestPhoneOtp,
+        verifyPhoneOtp,
+        resetPassword,
         logout,
         refreshUser,
         updateUser,

@@ -113,10 +113,13 @@ const CustomSelect: React.FC<SelectProps> = ({
 };
 
 const RegisterScreen: React.FC<Props> = ({ navigation }) => {
-  const { register } = useAuth();
+  const { register, requestPhoneOtp, verifyPhoneOtp } = useAuth();
   const { centresExamen, getDefaultParrainageCode } = useConfig();
 
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nom: '',
     prenom: '',
@@ -151,6 +154,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     value: (typeof formData)[K]
   ) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (field === 'telephone') {
+      setOtpSent(false);
+      setOtpCode('');
+      setVerificationToken(null);
+    }
   };
 
   const handleNoCode = async () => {
@@ -185,7 +193,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       Toast.show({ type: 'error', text1: 'Le prénom est requis' });
       return false;
     }
-    if (!formData.telephone.trim() || formData.telephone.length < 9) {
+    if (!/^\d{9}$/.test(formData.telephone.trim())) {
       Toast.show({ type: 'error', text1: 'Numéro invalide (9 chiffres)' });
       return false;
     }
@@ -208,13 +216,38 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     return true;
   };
 
-  const handleRegister = async () => {
+  const handleRequestOtp = async () => {
     if (!validateForm()) return;
 
     Keyboard.dismiss();
     setLoading(true);
 
     try {
+      const sent = await requestPhoneOtp(formData.telephone, 'inscription');
+      if (sent) setOtpSent(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyAndRegister = async () => {
+    if (!validateForm()) return;
+    if (!otpCode.trim() && !verificationToken) {
+      Toast.show({ type: 'error', text1: 'Saisissez le code reçu sur WhatsApp' });
+      return;
+    }
+
+    Keyboard.dismiss();
+    setLoading(true);
+
+    try {
+      let verifiedToken = verificationToken;
+      if (!verifiedToken) {
+        verifiedToken = await verifyPhoneOtp(formData.telephone, otpCode.trim(), 'inscription');
+        if (!verifiedToken) return;
+        setVerificationToken(verifiedToken);
+      }
+
       const success = await register({
         nom: formData.nom,
         prenom: formData.prenom,
@@ -223,8 +256,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         password_confirmation: formData.password_confirmation,
         date_naissance: formData.date_naissance,
         type_permis: formData.type_permis,
+        type_cours: 'en_ligne',
+        vague: '1',
         centre_examen_id: formData.centre_examen_id,
         code_parrainage: formData.code_parrainage,
+        otp_token: verifiedToken,
       });
 
       if (success) {
@@ -303,7 +339,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             />
 
             <Input
-              label="Téléphone *"
+              label="Numéro WhatsApp *"
               placeholder="6XXXXXXXX"
               value={formData.telephone}
               onChangeText={v => updateField('telephone', v)}
@@ -312,6 +348,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               editable={!loading}
               maxLength={9}
             />
+            <Text style={styles.helperText}>
+              Utilisez le numéro associé à votre compte WhatsApp. Un code de vérification vous sera envoyé sur ce numéro.
+            </Text>
           </View>
 
           {/* Configuration */}
@@ -380,14 +419,43 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             />
           </View>
 
+          {otpSent && (
+            <Input
+              label="Code reçu sur WhatsApp"
+              placeholder="Code à 6 chiffres"
+              value={otpCode}
+              onChangeText={setOtpCode}
+              keyboardType="number-pad"
+              maxLength={6}
+              editable={!loading && !verificationToken}
+              leftIcon="key-outline"
+            />
+          )}
+
           <Button
-            title={loading ? 'Inscription...' : "S'inscrire"}
-            onPress={handleRegister}
+            title={loading
+              ? 'Veuillez patienter...'
+              : !otpSent
+                ? 'Recevoir un code WhatsApp'
+                : verificationToken
+                  ? 'Créer mon compte'
+                  : 'Vérifier le code et créer mon compte'}
+            onPress={otpSent ? handleVerifyAndRegister : handleRequestOtp}
             loading={loading}
             disabled={loading}
             fullWidth
             size="large"
           />
+
+          {otpSent && !verificationToken && (
+            <TouchableOpacity
+              onPress={handleRequestOtp}
+              disabled={loading}
+              style={styles.resendButton}
+            >
+              <Text style={styles.resendText}>Renvoyer le code sur WhatsApp</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.footer} />
         </ScrollView>
@@ -417,6 +485,21 @@ const styles = StyleSheet.create({
     ...theme.typography.body,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.md,
+  },
+  helperText: {
+    ...theme.typography.caption,
+    color: theme.colors.textSecondary,
+    marginTop: -theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  resendButton: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+  },
+  resendText: {
+    ...theme.typography.bodySmall,
+    color: theme.colors.primary,
+    fontWeight: '600',
   },
   header: {
     marginBottom: theme.spacing.xl,
