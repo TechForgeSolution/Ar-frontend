@@ -27,7 +27,8 @@ export default function CoursPratiqueScreen() {
   const [premierDepotEffectue, setPremierDepotEffectue] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isMoto = user?.type_permis === 'permis_a';
 
   useEffect(() => {
     loadCoursPratique();
@@ -62,11 +63,11 @@ export default function CoursPratiqueScreen() {
     if (!progression || !premierDepotEffectue) return null;
     return (
       <View style={styles.progressCard}>
-        <Text style={styles.progressTitle}>Votre progression pratique</Text>
+        <Text style={styles.progressTitle}>{isMoto ? 'Votre progression moto' : 'Votre progression pratique'}</Text>
         <View style={styles.progressSection}>
           <View style={styles.progressHeader}>
-            <Ionicons name="car" size={20} color={theme.colors.secondary} />
-            <Text style={styles.progressLabel}>Vidéos de conduite</Text>
+            <Ionicons name={isMoto ? 'bicycle' : 'car'} size={20} color={theme.colors.secondary} />
+            <Text style={styles.progressLabel}>{isMoto ? 'Vidéos de conduite moto' : 'Vidéos de conduite'}</Text>
           </View>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progression.lecons.pourcentage}%`, backgroundColor: theme.colors.secondary }]} />
@@ -104,7 +105,7 @@ export default function CoursPratiqueScreen() {
         <Ionicons name="information-circle" size={32} color={theme.colors.warning} />
         <Text style={styles.infoTitle}>Accès limité</Text>
         <Text style={styles.infoText}>
-          Vous pouvez consulter la structure des cours pratiques (modules, chapitres, vidéos), 
+          Vous pouvez consulter la structure des cours pratiques {isMoto ? 'de moto' : ''} (modules, chapitres, vidéos),
           mais pour accéder au contenu complet des vidéos, veuillez effectuer votre premier dépôt.
         </Text>
         <TouchableOpacity
@@ -131,7 +132,7 @@ export default function CoursPratiqueScreen() {
       <View style={styles.moduleHeader}>
         <View style={[styles.moduleIcon, { backgroundColor: theme.colors.secondaryLight + '20' }]}>
           <Ionicons
-            name={item.complete ? 'checkmark-circle' : 'car'}
+            name={item.complete ? 'checkmark-circle' : isMoto ? 'bicycle' : 'car'}
             size={32}
             color={item.complete ? theme.colors.success : theme.colors.secondary}
           />
@@ -191,10 +192,10 @@ export default function CoursPratiqueScreen() {
         }
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Ionicons name="car-outline" size={64} color={theme.colors.textMuted} />
+            <Ionicons name={isMoto ? 'bicycle' : 'car-outline'} size={64} color={theme.colors.textMuted} />
             <Text style={styles.emptyTitle}>Aucun module disponible</Text>
             <Text style={styles.emptyText}>
-              Les cours pratiques seront bientôt disponibles
+              Les cours pratiques {isMoto ? 'du permis moto' : ''} seront bientôt disponibles
             </Text>
           </View>
         }

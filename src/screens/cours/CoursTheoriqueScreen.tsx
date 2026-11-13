@@ -27,7 +27,8 @@ export default function CoursTheoriqueScreen() {
   const [premierDepotEffectue, setPremierDepotEffectue] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isMoto = user?.type_permis === 'permis_a';
 
   useEffect(() => {
     loadCoursTheorique();
@@ -192,7 +193,7 @@ export default function CoursTheoriqueScreen() {
               <Ionicons name="book-outline" size={64} color={theme.colors.textMuted} />
               <Text style={styles.emptyTitle}>Aucun module disponible</Text>
               <Text style={styles.emptyText}>
-                Les cours théoriques seront bientôt disponibles
+                Les cours théoriques {isMoto ? 'du permis moto' : ''} seront bientôt disponibles
               </Text>
             </View>
           }
